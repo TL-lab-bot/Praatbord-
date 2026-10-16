@@ -210,6 +210,12 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:3px soli
 .filebtn input{position:absolute; inset:0; opacity:0; cursor:pointer}
 .note{font-size:13px; color:var(--muted); line-height:1.45; margin:0}
 .mine{display:flex; flex-direction:column; gap:6px}
+.people{display:flex; flex-direction:column; gap:10px}
+.person{flex-wrap:nowrap; align-items:flex-end}
+.person label{flex:1 1 auto; font-size:13px; color:var(--muted)}
+.person .preview{border:1px solid}
+.person .preview img{object-fit:cover}
+.person .s img{width:34px; height:34px; display:block}
 .mine:empty{display:none}
 .mine .it{display:flex; align-items:center; gap:10px; padding:6px 8px; border-radius:12px; border:1px solid}
 .mine .it .s{font-size:22px}
@@ -286,6 +292,12 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:3px soli
         <span class="btn ghost filebtn">Foto kiezen<input type="file" id="namePhoto" accept="image/*"></span>
         <button class="btn ghost" id="namePhotoDel">Foto weghalen</button>
       </div>
+    </section>
+
+    <section>
+      <h3>Mensen</h3>
+      <p class="note">Geef de knoppen een naam en het liefst een foto. Leeg laten houdt het gewone woord. Namen en foto's blijven op deze telefoon.</p>
+      <div class="people" id="people"></div>
     </section>
 
     <section>
@@ -473,10 +485,9 @@ const CATS = [
     S('mensen','alsjeblieft','🤲'), S('mensen','sorry','😔'), S('mensen','oké','👌'),
     S('mensen','oh oh','😮'), S('mensen','weet ik niet','🤷'), S('mensen','kijk eens','👉'),
     W('mensen','opa','👴','pers',{person:'3s'}), W('mensen','oma','👵','pers',{person:'3s'}),
-    W('mensen','grote broer','👦','pers',{person:'3s'}), W('mensen','grote zus','👧','pers',{person:'3s'}),
+    W('mensen','broer','👦','pers',{person:'3s'}), W('mensen','zus','👧','pers',{person:'3s'}),
     W('mensen','juf','👩‍🏫','pers',{person:'3s'}), W('mensen','baby','👶','pers',{person:'3s'}),
-    W('mensen','Rupert','🐶','pers',{person:'3s'}), N('mensen','poes','🐱'),
-    W('mensen','broertje','👦','pers',{person:'3s'}) ]},
+    W('mensen','Rupert','🐶','pers',{person:'3s'}), N('mensen','poes','🐱') ]},
   {key:'plekken', label:'Plekken', emo:'🏠', words:[
     N('plekken','bed','🛏️'), N('plekken','buiten','🌳'), N('plekken','binnen','🚪'),
     N('plekken','wc','🚽'), N('plekken','badkamer','🚿'), N('plekken','slaapkamer','🛏️'),
@@ -501,7 +512,7 @@ const PHRASES = [
 
 /* ---------- Opslag ---------- */
 const KEY = 'praatbord.v1';
-const DEF = {name:'', namePhoto:null, custom:[], settings:{mode:'netjes', eachWord:true, voice:'', rate:0.9, phraseSubj:'ik'}, bi:{}, sent:{}};
+const DEF = {name:'', namePhoto:null, custom:[], settings:{mode:'netjes', eachWord:true, voice:'', rate:0.9, phraseSubj:'ik'}, people:{}, bi:{}, sent:{}};
 function load(){
   try{
     const raw = localStorage.getItem(KEY);
@@ -527,7 +538,12 @@ function rebuildLex(){
   const all = [...CORE, ...CATS.flatMap(c=>c.words), ...EXTRA, ...state.custom];
   for(const w of all){ LEX[w.id]=w; if(!BY_LABEL[w.label]) BY_LABEL[w.label]=w; }
 }
-const wordText = w => w.type==='name' ? (state.name || 'naam') : w.label;
+const PEOPLE = ['kern:mama','kern:papa','mensen:broer','mensen:zus','mensen:opa','mensen:oma','mensen:Rupert','mensen:juf'];
+const pp = w => (state.people && state.people[w.id]) || {};
+const wordText = w => w.type==='name' ? (state.name || 'naam') : (pp(w).name || w.label);
+// zinslogica krijgt de eigen namen mee
+const named = ws => ws.map(w => pp(w).name ? {...w, label: pp(w).name} : w);
+const nice = ws => smooth(named(ws), state.name);
 
 /* ---------- Spraak ---------- */
 const synth = window.speechSynthesis;
@@ -567,7 +583,7 @@ function speak(text){
 let msg = [];
 let cat = 'zinnen';
 const sentenceText = () => state.settings.mode==='netjes'
-  ? smooth(msg, state.name)
+  ? nice(msg)
   : msg.map(wordText).join(' ');
 
 function learnPair(prevId, id){
@@ -708,7 +724,7 @@ function fly(fromEl, chipEl){
 /* ---------- Tekenen ---------- */
 function sym(w){
   const span = document.createElement('span'); span.className='s';
-  const photo = w.type==='name' ? state.namePhoto : w.photo;
+  const photo = w.type==='name' ? state.namePhoto : (pp(w).photo || w.photo);
   const src = photo || SYM[w.id] || (!w.emo ? SYM[w.type==='pers' ? 'ui:person' : 'ui:custom'] : null);
   if(src){ const img=document.createElement('img'); img.src=src; img.alt=''; img.draggable=false; span.append(img); }
   else span.textContent = w.emo;
@@ -731,11 +747,11 @@ function phraseWords(parts){
 function phraseTile(ph){
   const ws=phraseWords(ph.parts);
   const b=document.createElement('button'); b.className='tile press c-phrase';
-  const l=document.createElement('span'); l.className='l'; l.textContent=smooth(ws, state.name).replace(/\.$/,'');
+  const l=document.createElement('span'); l.className='l'; l.textContent=nice(ws).replace(/\.$/,'');
   b.append(sym(ws[ws.length-1]), l);
   b.addEventListener('click', ()=>{
     msg=[...ws]; renderBar();
-    speak(smooth(msg, state.name)); learnSentence();
+    speak(nice(msg)); learnSentence();
     fly(b.querySelector('.s'), $('msg').lastElementChild);
   });
   return b;
@@ -813,10 +829,10 @@ function renderBar(){
   const said=$('said'); said.replaceChildren();
   if(msg.length && state.settings.mode==='netjes'){
     const plain = msg.map(wordText).join(' ');
-    const nice = smooth(msg, state.name);
-    if(nice.replace(/[.?]$/,'').toLowerCase() !== plain.toLowerCase()){
+    const niceTxt = nice(msg);
+    if(niceTxt.replace(/[.?]$/,'').toLowerCase() !== plain.toLowerCase()){
       const k=document.createElement('span'); k.textContent='Zo klinkt het:';
-      const b=document.createElement('b'); b.textContent=nice;
+      const b=document.createElement('b'); b.textContent=niceTxt;
       said.append(k,b);
     }
   }
@@ -829,7 +845,7 @@ function renderBar(){
     for(const s of topSentences()){
       const ws = s.ids.map(id=>LEX[id]);
       const b=document.createElement('button'); b.className='sbtn press sent';
-      b.textContent = '↻ ' + (state.settings.mode==='netjes' ? smooth(ws, state.name) : ws.map(wordText).join(' '));
+      b.textContent = '↻ ' + (state.settings.mode==='netjes' ? nice(ws) : ws.map(wordText).join(' '));
       b.addEventListener('click', ()=>{ msg=[...ws]; renderBar(); speakSentence(); });
       sg.append(b);
     }
@@ -883,7 +899,7 @@ function openSheet(){
   $('rate').value = state.settings.rate;
   $('addCat').replaceChildren(...CATS.filter(c=>!c.phrases).map(c=>{ const o=document.createElement('option'); o.value=c.key; o.textContent=c.label; if(c.key===cat) o.selected=true; return o; }));
   $('phraseName').checked = state.settings.phraseSubj==='naam';
-  fillVoiceSelect(); renderMine(); disarm();
+  fillVoiceSelect(); renderMine(); renderPeople(); disarm();
   const sh=$('sheet');
   if(sh.hidden){ sh.hidden=false; panel.scrollTop=0; sheetH=panel.offsetHeight||600; sheetY.set(sheetH); }
   sheetY.to(0,{response:0.42, damping:1});
@@ -976,6 +992,34 @@ $('addBtn').addEventListener('click', ()=>{
   $('addLabel').value=''; $('addEmo').value=''; addPhotoData=null; setPreview($('addPrev'), null, '🙂');
   renderMine(); toast('“'+label+'” staat nu op het bord '+k.label+'.');
 });
+function renderPeople(){
+  const box=$('people'); box.replaceChildren();
+  state.people = state.people || {};
+  for(const id of PEOPLE){
+    const w=LEX[id]; if(!w) continue;
+    const cur=state.people[id] || {};
+    const row=document.createElement('div'); row.className='row person';
+    const prev=document.createElement('div'); prev.className='preview c-'+w.type; if(cur.photo) setPreview(prev, cur.photo); else prev.replaceChildren(sym(w));
+    const lab=document.createElement('label'); lab.textContent=w.label;
+    const inp=document.createElement('input'); inp.type='text'; inp.maxLength=20; inp.autocomplete='off'; inp.placeholder=w.label; inp.value=cur.name||''; inp.id='pn-'+id.replace(/\W/g,'_');
+    inp.addEventListener('input', ()=>{ const v=inp.value.trim(); state.people[id]={...(state.people[id]||{}), name:v||undefined}; save(); });
+    lab.append(inp);
+    const fb=document.createElement('span'); fb.className='btn ghost filebtn'; fb.textContent=cur.photo?'Andere foto':'Foto';
+    const fi=document.createElement('input'); fi.type='file'; fi.accept='image/*'; fb.append(fi);
+    fi.addEventListener('change', async ()=>{
+      const f=fi.files[0]; if(!f) return;
+      try{ const d=await shrink(f); state.people[id]={...(state.people[id]||{}), photo:d}; save(); renderPeople(); }
+      catch(_){ toast('Deze foto kon niet worden gelezen. Probeer een andere.'); }
+    });
+    row.append(prev, lab, fb);
+    if(cur.photo){
+      const x=document.createElement('button'); x.className='btn ghost'; x.textContent='Weg';
+      x.addEventListener('click', ()=>{ const c={...state.people[id]}; delete c.photo; state.people[id]=c; save(); renderPeople(); });
+      row.append(x);
+    }
+    box.append(row);
+  }
+}
 function renderMine(){
   const box=$('mine'); box.replaceChildren();
   for(const w of state.custom){
