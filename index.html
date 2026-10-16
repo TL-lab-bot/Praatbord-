@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Praatbord">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="theme-color" content="#EDF2F5">
+<meta name="theme-color" content="#F2F2F7">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" type="image/png" href="icon-192.png">
@@ -19,123 +19,130 @@ body{margin:0; font-size:14px}
 img{max-width:100%}
 [hidden]{display:none!important}
 </style>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Fredoka:wght@500;600&display=swap">
 <style>
-/* Indeling: vast kernbord links (woorden staan altijd op dezelfde plek), wisselend themabord rechts,
-   zinsbalk + suggesties erboven. Bewust één lichte look: de woordkleuren moeten voor het kind altijd gelijk blijven. */
+/* Indeling: vast kernbord links, themabord rechts in een witte kaart, zinsbalk als zwevende glazen kaart.
+   iOS-stijl: systeemlettertype (rond voor woorden), segmented control voor de borden, grouped sheet voor ouders.
+   De woordkleuren blijven altijd gelijk; die moet het kind leren herkennen. */
 :root{
   color-scheme: light;
-  --paper:#EDF2F5; --surface:#FFFFFF; --ink:#17303F; --muted:#56697A; --line:#CCD8E1;
-  --accent:#1A6CAE; --accent-ink:#FFFFFF; --warn:#B4442A;
-  --pers:#FFE97F;   --pers-b:#D9BA34;
-  --verb:#B6EA9D;   --verb-b:#66B748;
-  --noun:#FFD3A1;   --noun-b:#E89A47;
-  --adj:#BCDCFF;    --adj-b:#5EA2E3;
-  --social:#E2E6EB; --social-b:#A9B3BE;
-  --q:#DAC4FF;      --q-b:#9D7BDD;
-  --small:#FFDCCB;  --small-b:#EBA483;
-  --f-ui:"Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --f-say:"Fredoka", "Atkinson Hyperlegible", system-ui, -apple-system, sans-serif;
+  --bg:#F2F2F7; --surface:#FFFFFF; --glass:rgba(255,255,255,.74); --glass-edge:rgba(255,255,255,.7);
+  --fill:rgba(118,118,128,.12); --fill-2:rgba(118,118,128,.2);
+  --ink:#1C1C1E; --muted:#6E6E73; --sep:rgba(60,60,67,.18);
+  --accent:#007AFF; --on-accent:#FFFFFF; --warn:#FF3B30; --toast:rgba(28,28,30,.86);
+  --pers:#FFE885;   --pers-b:#E6C640;
+  --verb:#BDECA8;   --verb-b:#79C15C;
+  --noun:#FFD6A8;   --noun-b:#EFA15A;
+  --adj:#C2DFFF;    --adj-b:#6CAAE8;
+  --social:#E5E5EA; --social-b:#B9BCC4;
+  --q:#DCC8FF;      --q-b:#A586E3;
+  --small:#FFDFCF;  --small-b:#F0AC8C;
+  --f-ui:-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI", Roboto, sans-serif;
+  --f-round:ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, sans-serif;
+  --r-tile:14px; --r-card:20px;
+  --sh-1:0 1px 1px rgba(0,0,0,.03), 0 1px 3px rgba(0,0,0,.07);
+  --sh-2:0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.08);
+  --ease-out:cubic-bezier(.25,1,.5,1);
 }
 html,body{height:100%}
 body{
-  background:var(--paper); color:var(--ink); font-family:var(--f-ui);
+  background:var(--bg); color:var(--ink); font-family:var(--f-ui);
+  -webkit-font-smoothing:antialiased;
   -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
   -webkit-tap-highlight-color:transparent; touch-action:manipulation; overflow-x:hidden;
 }
 *{box-sizing:border-box}
-button{font:inherit; color:inherit; cursor:pointer}
+button{font:inherit; color:inherit; cursor:pointer; -webkit-appearance:none; appearance:none}
 button:focus-visible, input:focus-visible, select:focus-visible{outline:3px solid var(--accent); outline-offset:2px}
 
 .app{
   min-height:100%; max-width:1100px; margin:0 auto;
-  display:flex; flex-direction:column; gap:8px;
-  padding-block:8px;
-  padding-left:max(16px, env(safe-area-inset-left, 0px));
-  padding-right:max(16px, env(safe-area-inset-right, 0px));
+  display:flex; flex-direction:column; gap:10px;
+  padding-block:10px;
+  padding-left:max(14px, env(safe-area-inset-left, 0px));
+  padding-right:max(14px, env(safe-area-inset-right, 0px));
 }
+
+/* Alles wat je kunt indrukken reageert al bij aanraken */
+.press{transition:transform .32s var(--ease-out), filter .32s var(--ease-out), background-color .2s}
+.press.is-pressed{transform:scale(.94); filter:brightness(.94); transition-duration:.07s}
 
 /* Zinsbalk */
-.bar{display:flex; gap:6px; height:66px; flex:none}
+.bar{display:flex; gap:8px; height:68px; flex:none}
 .msg{
   flex:1; min-width:0; display:flex; align-items:center; gap:6px;
-  background:var(--surface); border:2px solid var(--line); border-radius:14px;
-  padding:0 8px; overflow-x:auto; scrollbar-width:none; text-align:left;
+  background:var(--glass); -webkit-backdrop-filter:blur(20px) saturate(180%); backdrop-filter:blur(20px) saturate(180%);
+  border:1px solid var(--glass-edge); border-radius:var(--r-card); box-shadow:var(--sh-2);
+  padding:0 10px; overflow-x:auto; scrollbar-width:none; text-align:left;
+  transition:box-shadow .3s var(--ease-out), transform .32s var(--ease-out);
 }
 .msg::-webkit-scrollbar{display:none}
-.msg .say{flex:none; display:flex; color:var(--accent); opacity:.45}
-.ico{width:26px; height:26px; display:block}
-.ico.sm{width:16px; height:16px}
+.msg.press.is-pressed{transform:scale(.985)}
+.msg.speaking{box-shadow:0 0 0 3px rgba(0,122,255,.35), var(--sh-2)}
+.msg .say{flex:none; display:flex; color:var(--accent); opacity:.35; transition:opacity .2s}
 .msg.has .say{opacity:1}
-.msg .empty{color:var(--muted); font-size:15px; white-space:nowrap}
+.msg .empty{color:var(--muted); font-size:15px; white-space:nowrap; letter-spacing:-.01em}
 .chip{
-  flex:none; display:flex; flex-direction:column; align-items:center; justify-content:center;
-  min-width:44px; height:50px; padding:2px 6px; border-radius:9px; border:2px solid;
+  flex:none; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px;
+  min-width:46px; height:52px; padding:3px 7px; border-radius:11px; border:1px solid;
 }
-.chip .s{font-size:20px; line-height:1}
-.chip .s img{width:26px; height:26px; border-radius:4px; object-fit:contain; display:block}
-.chip .l{font-size:12px; font-weight:700; white-space:nowrap}
-.iconbtn{ color:var(--ink);
-  flex:none; width:54px; border-radius:14px; border:2px solid var(--line); background:var(--surface);
-  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
-  font-size:22px; line-height:1;
+.chip .s img{width:28px; height:28px; object-fit:contain; display:block}
+.chip .l{font-family:var(--f-round); font-size:12px; font-weight:600; white-space:nowrap; letter-spacing:.01em}
+.iconbtn{
+  flex:none; width:56px; border-radius:var(--r-card); color:var(--ink);
+  background:var(--glass); -webkit-backdrop-filter:blur(20px) saturate(180%); backdrop-filter:blur(20px) saturate(180%);
+  border:1px solid var(--glass-edge); box-shadow:var(--sh-2);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
 }
-.iconbtn small{font-size:11px; font-weight:700; color:var(--muted)}
-.iconbtn:active{transform:scale(.95)}
+.iconbtn small{font-size:11px; font-weight:600; color:var(--muted)}
+.ico{width:24px; height:24px; display:block}
+.ico.sm{width:15px; height:15px}
 
-.said{min-height:22px; font-size:15px; color:var(--muted); display:flex; gap:6px; align-items:baseline; flex:none}
-.said b{color:var(--ink); font-family:var(--f-say); font-weight:600; font-size:17px}
+.said{min-height:22px; font-size:14px; color:var(--muted); display:flex; gap:6px; align-items:baseline; flex:none; padding:0 4px}
+.said b{color:var(--ink); font-family:var(--f-round); font-weight:600; font-size:17px; letter-spacing:-.01em}
 
 /* Suggesties */
-.sugg{display:flex; align-items:center; gap:6px; height:48px; flex:none; overflow-x:auto; scrollbar-width:none}
+.sugg{display:flex; align-items:center; gap:8px; height:48px; flex:none; overflow-x:auto; scrollbar-width:none; margin:0 -2px; padding:0 2px}
 .sugg::-webkit-scrollbar{display:none}
-.sugg .why{flex:none; font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); width:62px; line-height:1.15}
+.sugg .why{flex:none; font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); width:60px; line-height:1.15}
 .sbtn{
-  flex:none; height:44px; display:flex; align-items:center; gap:6px; padding:0 12px 0 8px;
-  border-radius:22px; border:2px solid; font-weight:700; font-size:15px; white-space:nowrap;
+  flex:none; height:42px; display:flex; align-items:center; gap:6px; padding:0 14px 0 6px;
+  border-radius:21px; border:1px solid; font-family:var(--f-round); font-weight:600; font-size:15px; white-space:nowrap;
+  box-shadow:var(--sh-1);
 }
-.sbtn .s{font-size:20px}
-.sbtn .s img{width:28px; height:28px; border-radius:4px; object-fit:contain; display:block}
-.sbtn.sent{background:var(--surface); border-color:var(--accent); color:var(--accent); font-family:var(--f-say); font-weight:600}
-.sbtn:active{transform:scale(.96)}
+.sbtn .s img{width:30px; height:30px; object-fit:contain; display:block}
+.sbtn.sent{background:var(--surface); border-color:transparent; color:var(--accent); padding:0 14px}
 
-/* Thema-tabs */
-.tabs{display:grid; grid-template-columns:repeat(6, minmax(0,1fr)); gap:5px; flex:none}
-.tab{
-  height:50px; border-radius:12px; border:2px solid var(--line); background:var(--surface);
-  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px;
-}
-.tab .s{font-size:20px; line-height:1}
-.tab .s img{width:24px; height:24px; display:block}
-.tab[aria-selected="true"] .s img{background:#fff; border-radius:5px}
-.tab .l{font-size:11px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; padding:0 2px}
-.tab[aria-selected="true"]{background:var(--ink); border-color:var(--ink); color:var(--accent-ink)}
+/* Borden kiezen: iOS segmented control */
+.tabs{position:relative; display:grid; grid-template-columns:repeat(6, minmax(0,1fr)); padding:3px; border-radius:14px; background:var(--fill); flex:none}
+.seg-pill{position:absolute; top:3px; bottom:3px; left:0; width:0; border-radius:11px; background:var(--surface);
+  box-shadow:0 3px 8px rgba(0,0,0,.12), 0 1px 1px rgba(0,0,0,.04); will-change:transform,width; pointer-events:none}
+.tab{position:relative; z-index:1; height:52px; border:0; background:transparent; border-radius:11px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; color:var(--muted)}
+.tab .s img{width:26px; height:26px; object-fit:contain; display:block; opacity:.75; transition:opacity .25s}
+.tab .l{font-size:11px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; padding:0 2px}
+.tab[aria-selected="true"]{color:var(--ink)}
+.tab[aria-selected="true"] .l{font-weight:700}
+.tab[aria-selected="true"] .s img{opacity:1}
 
 /* Borden */
-.board{flex:1; display:grid; grid-template-columns:1fr 1fr; gap:8px; min-height:calc(7 * 54px + 16px)}
-.pane{
-  display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); grid-template-rows:repeat(7, minmax(50px,1fr));
-  gap:5px; padding:5px; border-radius:14px; border:2px solid transparent;
-}
-.pane.fringe{background:var(--surface); border-color:var(--line)}
+.board{flex:1; display:grid; grid-template-columns:1fr 1fr; gap:10px; min-height:calc(7 * 54px + 16px)}
+.pane{display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); grid-template-rows:repeat(7, minmax(50px,1fr)); gap:6px; padding:6px; border-radius:var(--r-card)}
+.pane.fringe{background:var(--surface); box-shadow:var(--sh-1)}
 .tile{
-  min-width:0; border-radius:11px; border:2px solid; padding:2px;
+  min-width:0; border-radius:var(--r-tile); border:1.5px solid; padding:3px 2px;
   display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
-  transition:transform .08s ease;
+  box-shadow:var(--sh-1);
 }
 .tile .s{font-size:clamp(20px, min(5.4vw, 5vh), 46px); line-height:1}
-.tile .s img{width:clamp(28px, min(8.6vw, 7.2vh), 72px); height:clamp(28px, min(8.6vw, 7.2vh), 72px); object-fit:contain; border-radius:6px; display:block}
+.tile .s img{width:clamp(28px, min(8.8vw, 7.2vh), 74px); height:clamp(28px, min(8.8vw, 7.2vh), 74px); object-fit:contain; display:block}
 .tile .l{
-  font-size:clamp(11px, min(2.9vw, 2.3vh), 18px); font-weight:700; line-height:1.05; text-align:center;
-  max-width:100%; overflow-wrap:anywhere;
+  font-family:var(--f-round); font-size:clamp(11px, min(2.9vw, 2.3vh), 18px); font-weight:600; letter-spacing:.005em;
+  line-height:1.05; text-align:center; max-width:100%; overflow-wrap:break-word; -webkit-hyphens:auto; hyphens:auto;
   display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
 }
-.tile:active{transform:scale(.94)}
-.tile.hit{animation:hit .28s ease-out}
-@keyframes hit{0%{box-shadow:0 0 0 0 var(--accent)}100%{box-shadow:0 0 0 7px transparent}}
-.tile.blank{background:transparent; border:2px dashed var(--line); cursor:default}
+.tile .l.long{font-size:clamp(9.5px, min(2.45vw, 1.95vh), 15px); letter-spacing:-.01em}
+.tile.blank{background:transparent; border:1.5px dashed var(--sep); box-shadow:none; cursor:default}
+.pane.fringe .tile:not(.blank){box-shadow:none}
 
 .c-pers,.c-name{background:var(--pers); border-color:var(--pers-b)}
 .c-verb{background:var(--verb); border-color:var(--verb-b)}
@@ -145,70 +152,89 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:3px soli
 .c-q{background:var(--q); border-color:var(--q-b)}
 .c-small{background:var(--small); border-color:var(--small-b)}
 
+/* Pictogram dat naar de zinsbalk vliegt */
+.flyer{position:fixed; z-index:40; pointer-events:none; display:flex; align-items:center; justify-content:center; line-height:1; will-change:transform,opacity}
+.flyer img{width:100%; height:100%; object-fit:contain; display:block}
+
 /* Voet */
-.foot > span{min-width:0}
-.foot{flex:none; display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:12px; color:var(--muted); min-height:34px}
+.foot{flex:none; display:flex; justify-content:space-between; align-items:center; gap:10px; font-size:11px; color:var(--muted); min-height:34px; padding:0 2px}
+.foot > span{min-width:0; line-height:1.3}
 .lock{
-  position:relative; flex:none; white-space:nowrap; display:flex; align-items:center; gap:6px; height:34px; padding:0 12px;
-  border-radius:17px; border:2px solid var(--line); background:var(--surface); font-size:13px; font-weight:700; color:var(--muted);
-  overflow:hidden;
+  position:relative; flex:none; white-space:nowrap; display:flex; align-items:center; gap:6px; height:32px; padding:0 13px;
+  border-radius:16px; border:0; background:var(--fill); font-size:13px; font-weight:600; color:var(--muted); overflow:hidden;
 }
-.lock::before{
-  content:""; position:absolute; inset:0; background:var(--accent); opacity:.18;
-  transform:scaleX(0); transform-origin:left;
-}
+.lock::before{content:""; position:absolute; inset:0; background:var(--accent); opacity:.2; transform:scaleX(0); transform-origin:left}
 .lock.holding::before{transition:transform 1.5s linear; transform:scaleX(1)}
 
-/* Ouderpaneel */
-.sheet{position:fixed; inset:0; background:rgba(15,32,44,.42); display:flex; align-items:flex-end; justify-content:center; z-index:20}
+/* Ouderpaneel: sheet die je omlaag kunt vegen */
+.sheet{position:fixed; inset:0; background:rgba(0,0,0,var(--scrim,0)); display:flex; align-items:flex-end; justify-content:center; z-index:20}
 .panel{
-  width:100%; max-width:640px; max-height:90%; overflow-y:auto; background:var(--surface); color:var(--ink);
-  border-radius:20px 20px 0 0; -webkit-user-select:text; user-select:text;
-  padding-top:16px;
-  padding-bottom:calc(20px + env(safe-area-inset-bottom, 0px));
-  padding-left:max(18px, env(safe-area-inset-left, 0px));
-  padding-right:max(18px, env(safe-area-inset-right, 0px));
-  display:flex; flex-direction:column; gap:18px;
+  width:100%; max-width:640px; max-height:92%; overflow-y:auto; overscroll-behavior:contain;
+  background:rgba(242,242,247,.94); -webkit-backdrop-filter:blur(30px) saturate(180%); backdrop-filter:blur(30px) saturate(180%);
+  color:var(--ink); border-radius:22px 22px 0 0; box-shadow:0 -10px 40px rgba(0,0,0,.18);
+  -webkit-user-select:text; user-select:text; will-change:transform;
+  padding-bottom:calc(24px + env(safe-area-inset-bottom, 0px));
+  padding-left:max(16px, env(safe-area-inset-left, 0px));
+  padding-right:max(16px, env(safe-area-inset-right, 0px));
+  display:flex; flex-direction:column; gap:22px;
 }
+.grab{position:sticky; top:0; z-index:2; margin:0 -16px; padding:8px 16px 10px; touch-action:none; cursor:grab;
+  background:rgba(242,242,247,.9); -webkit-backdrop-filter:blur(20px); backdrop-filter:blur(20px)}
+.handle{width:38px; height:5px; border-radius:3px; background:var(--fill-2); margin:0 auto 10px}
 .panel header{display:flex; justify-content:space-between; align-items:center; gap:12px}
-.panel h2{margin:0; font-family:var(--f-say); font-weight:600; font-size:22px}
-.panel h3{margin:0 0 8px; font-size:12px; letter-spacing:.07em; text-transform:uppercase; color:var(--muted)}
-.panel section{display:flex; flex-direction:column; gap:10px; padding-top:14px; border-top:1px solid var(--line)}
-.row{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+.panel h2{margin:0; font-size:22px; font-weight:700; letter-spacing:-.02em; line-height:1.15}
+.panel section{display:flex; flex-direction:column; gap:12px; background:var(--surface); border-radius:14px; padding:14px}
+.panel h3{margin:0; font-size:12px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--muted)}
+.row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
 .row > *{min-width:0}
-.panel label{font-weight:700; font-size:14px; display:flex; flex-direction:column; gap:4px; flex:1 1 140px}
+.panel label{font-weight:600; font-size:14px; display:flex; flex-direction:column; gap:5px; flex:1 1 140px}
 .panel input[type=text], .panel select{
-  font:inherit; font-size:16px; height:44px; padding:0 10px; border-radius:10px; border:2px solid var(--line);
-  background:var(--surface); color:var(--ink); width:100%;
+  font:inherit; font-size:16px; height:44px; padding:0 12px; border-radius:10px; border:0;
+  background:var(--fill); color:var(--ink); width:100%;
 }
-.panel input[type=range]{width:100%}
-.check{flex-direction:row !important; align-items:center; gap:10px !important; font-weight:400 !important}
-.check input{width:22px; height:22px; accent-color:var(--accent)}
-.btn{height:44px; padding:0 16px; border-radius:10px; border:2px solid var(--accent); background:var(--accent); color:var(--accent-ink); font-weight:700}
-.btn.ghost{background:var(--surface); color:var(--accent)}
-.btn.danger{border-color:var(--warn); background:var(--surface); color:var(--warn)}
-.btn.danger.armed{background:var(--warn); color:var(--accent-ink)}
+.panel input[type=range]{width:100%; accent-color:var(--accent)}
+.panel section > label{flex:none}
+.check{flex-direction:row !important; align-items:center; gap:12px !important; font-weight:400 !important; font-size:15px !important; line-height:1.35}
+.check input{width:22px; height:22px; accent-color:var(--accent); flex:none}
+.btn{flex:none; white-space:nowrap; display:inline-flex; align-items:center; justify-content:center; height:44px; padding:0 18px; border-radius:12px; border:0; background:var(--accent); color:var(--on-accent); font-weight:600; font-size:16px}
+.btn.ghost{background:var(--fill); color:var(--accent)}
+.btn.danger{background:var(--fill); color:var(--warn)}
+.btn.danger.armed{background:var(--warn); color:var(--on-accent)}
 .filebtn{position:relative; overflow:hidden}
 .filebtn input{position:absolute; inset:0; opacity:0; cursor:pointer}
-.note{font-size:13px; color:var(--muted); line-height:1.4; margin:0}
+.note{font-size:13px; color:var(--muted); line-height:1.45; margin:0}
 .mine{display:flex; flex-direction:column; gap:6px}
-.mine .it{display:flex; align-items:center; gap:10px; padding:6px 8px; border-radius:10px; border:2px solid}
+.mine:empty{display:none}
+.mine .it{display:flex; align-items:center; gap:10px; padding:6px 8px; border-radius:12px; border:1px solid}
 .mine .it .s{font-size:22px}
-.mine .it .s img{width:28px; height:28px; border-radius:6px; object-fit:cover; display:block}
-.mine .it span.t{flex:1; min-width:0; font-weight:700}
-.mine .it button{border:0; background:transparent; color:var(--warn); font-weight:700; padding:6px}
-.preview{width:44px; height:44px; border-radius:10px; border:2px dashed var(--line); display:flex; align-items:center; justify-content:center; font-size:22px; overflow:hidden; flex:none}
+.mine .it .s img{width:30px; height:30px; border-radius:6px; object-fit:contain; display:block}
+.mine .it span.t{flex:1; min-width:0; font-weight:600}
+.mine .it button{border:0; background:transparent; color:var(--warn); font-weight:600; padding:6px}
+.preview{width:46px; height:46px; border-radius:12px; background:var(--fill); display:flex; align-items:center; justify-content:center; font-size:22px; overflow:hidden; flex:none}
 .preview img{width:100%; height:100%; object-fit:cover}
 
+/* Meldingen: zwevende glazen capsule bovenaan */
 .toast{
   position:fixed; left:50%; transform:translateX(-50%);
-  bottom:calc(16px + env(safe-area-inset-bottom, 0px));
-  background:var(--ink); color:var(--accent-ink); padding:10px 16px; border-radius:12px; font-size:14px;
-  max-width:calc(100% - 32px); z-index:30;
+  top:calc(10px + env(safe-area-inset-top, 0px));
+  background:var(--toast); -webkit-backdrop-filter:blur(20px) saturate(180%); backdrop-filter:blur(20px) saturate(180%);
+  color:#FFFFFF; padding:11px 18px; border-radius:22px; font-size:14px; font-weight:500; line-height:1.35;
+  max-width:calc(100% - 32px); z-index:30; box-shadow:0 8px 30px rgba(0,0,0,.25); text-align:center;
 }
+
 @media (prefers-reduced-motion: reduce){
-  .tile.hit{animation:none} .tile:active,.sbtn:active,.iconbtn:active{transform:none}
+  .press, .press.is-pressed{transition:none; transform:none}
+  .press.is-pressed{filter:brightness(.92)}
   .lock.holding::before{transition:none; transform:scaleX(1)}
+}
+@media (prefers-reduced-transparency: reduce){
+  .msg, .iconbtn{background:var(--surface); -webkit-backdrop-filter:none; backdrop-filter:none}
+  .panel, .grab{background:#F2F2F7; -webkit-backdrop-filter:none; backdrop-filter:none}
+  .toast{background:#1C1C1E; -webkit-backdrop-filter:none; backdrop-filter:none}
+}
+@media (prefers-contrast: more){
+  .msg, .iconbtn{background:var(--surface); border-color:var(--ink)}
+  .tile{border-width:2px}
 }
 </style>
 </head>
@@ -217,9 +243,9 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:3px soli
 
 <div class="app">
   <div class="bar">
-    <button class="msg" id="msg" aria-label="Zin uitspreken"></button>
-    <button class="iconbtn" id="undo" aria-label="Wis woord"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5h11v14H9l-6-7z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 9l5 6M17 9l-5 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><small>woord</small></button>
-    <button class="iconbtn" id="clear" aria-label="Wis alles"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg><small>alles</small></button>
+    <button class="msg press" id="msg" aria-label="Zin uitspreken"></button>
+    <button class="iconbtn press" id="undo" aria-label="Wis woord"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5h11v14H9l-6-7z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 9l5 6M17 9l-5 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><small>woord</small></button>
+    <button class="iconbtn press" id="clear" aria-label="Wis alles"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg><small>alles</small></button>
   </div>
   <div class="said" id="said"></div>
   <div class="sugg" id="sugg" aria-label="Suggesties"></div>
@@ -230,16 +256,19 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:3px soli
   </div>
   <div class="foot">
     <span>Alles blijft op dit apparaat. Pictogrammen: Mulberry Symbols (Steve Lee) en OpenMoji, CC BY-SA 4.0</span>
-    <button class="lock" id="lock" aria-label="Ouderinstellingen, houd vast om te openen"><svg class="ico sm" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2" fill="currentColor"/><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2"/></svg> Ouders: houd vast</button>
+    <button class="lock press" id="lock" aria-label="Ouderinstellingen, houd vast om te openen"><svg class="ico sm" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2" fill="currentColor"/><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2"/></svg> Ouders: houd vast</button>
   </div>
 </div>
 
 <div class="sheet" id="sheet" hidden>
   <div class="panel" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
-    <header>
-      <h2 id="sheetTitle">Instellingen voor ouders</h2>
-      <button class="btn ghost" id="close">Klaar</button>
-    </header>
+    <div class="grab">
+      <div class="handle" aria-hidden="true"></div>
+      <header>
+        <h2 id="sheetTitle">Instellingen voor ouders</h2>
+        <button class="btn press" id="close">Klaar</button>
+      </header>
+    </div>
 
     <section>
       <h3>Je kind</h3>
@@ -470,8 +499,9 @@ function speak(text){
     u.lang = 'nl-NL'; u.rate = state.settings.rate; u.pitch = 1.05; u.volume = 1;
     const v = voices.find(v=>v.voiceURI===state.settings.voice) || voices[0];
     if(v) u.voice = v;
-    u.onstart = () => { heardOnce = true; };
-    u.onerror = e => { if(e.error!=='interrupted' && e.error!=='canceled') toast('Spreken lukte niet ('+e.error+'). Open de pagina in Safari.'); };
+    u.onstart = () => { heardOnce = true; $('msg').classList.add('speaking'); };
+    u.onend = () => $('msg').classList.remove('speaking');
+    u.onerror = e => { $('msg').classList.remove('speaking'); if(e.error!=='interrupted' && e.error!=='canceled') toast('Spreken lukte niet ('+e.error+'). Open de pagina in Safari.'); };
     current = u; // vasthouden, anders ruimt iOS hem soms op voordat hij klinkt
     synth.speak(u);
     if(!heardOnce && !hintShown){
@@ -502,8 +532,8 @@ function addWord(w, el){
   learnPair(msg.length ? msg[msg.length-1].id : '^', w.id);
   msg.push(w); save();
   if(state.settings.eachWord) speak(wordText(w));
-  if(el){ el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit'); }
   renderBar();
+  if(el) fly(el.querySelector('.s'), $('msg').lastElementChild);
 }
 function speakSentence(){
   if(!msg.length) return;
@@ -560,6 +590,65 @@ function topSentences(){
     .sort((a,b)=>b.n-a.n).slice(0,2);
 }
 
+
+/* ---------- Beweging (Apple-stijl: veren die je kunt onderbreken) ---------- */
+const RM = window.matchMedia ? matchMedia('(prefers-reduced-motion: reduce)') : {matches:false};
+class Spring{
+  constructor(value, onUpdate){ this.x=value; this.v=0; this.target=value; this.on=onUpdate; this.raf=0; this.done=null; this.tick=this.tick.bind(this); }
+  // response = hoe snel (s), damping 1 = zonder doorschieten
+  to(target, opts={}, done){
+    const {response=0.35, damping=1, velocity} = opts;
+    this.target=target; if(velocity!==undefined) this.v=velocity;
+    this.k=Math.pow(2*Math.PI/response,2); this.c=4*Math.PI*damping/response; this.done=done||null;
+    if(RM.matches){ this.stop(); this.x=target; this.v=0; this.on(this.x); const d=this.done; this.done=null; if(d) d(); return; }
+    if(!this.raf){ this.last=performance.now(); this.raf=requestAnimationFrame(this.tick); }
+  }
+  tick(t){
+    const dt=Math.min(0.064, Math.max(0,(t-this.last)/1000)); this.last=t;
+    const n=Math.max(1,Math.ceil(dt/0.004)), h=dt/n;
+    for(let i=0;i<n;i++){ const a=-this.k*(this.x-this.target)-this.c*this.v; this.v+=a*h; this.x+=this.v*h; }
+    if(Math.abs(this.v)<1 && Math.abs(this.x-this.target)<0.4){
+      this.x=this.target; this.v=0; this.on(this.x); this.raf=0; const d=this.done; this.done=null; if(d) d(); return;
+    }
+    this.on(this.x); this.raf=requestAnimationFrame(this.tick);
+  }
+  stop(){ if(this.raf) cancelAnimationFrame(this.raf); this.raf=0; }
+  set(v){ this.stop(); this.x=v; this.v=0; this.target=v; this.on(v); }
+}
+const project = (v, d=0.998) => (v/1000)*d/(1-d);
+const rubberband = (o, dim, c=0.55) => (o*dim*c)/(dim + c*Math.abs(o));
+
+/* Indrukken: direct zichtbaar bij aanraken, loslaten met een zachte veer */
+const PRESSABLE='.press';
+let pressed=null, pStart=null;
+document.addEventListener('pointerdown', e=>{
+  const t=e.target.closest && e.target.closest(PRESSABLE); if(!t) return;
+  pressed=t; pStart=[e.clientX,e.clientY]; t.classList.add('is-pressed');
+}, {passive:true});
+document.addEventListener('pointermove', e=>{
+  if(pressed && Math.hypot(e.clientX-pStart[0], e.clientY-pStart[1])>10){ pressed.classList.remove('is-pressed'); pressed=null; }
+}, {passive:true});
+['pointerup','pointercancel'].forEach(ev=>document.addEventListener(ev, ()=>{ if(pressed){ pressed.classList.remove('is-pressed'); pressed=null; } }, {passive:true}));
+
+/* Het plaatje vliegt van de knop naar de zinsbalk */
+function fly(fromEl, chipEl){
+  if(RM.matches || !fromEl || !chipEl || !document.body.animate) return;
+  const a=fromEl.getBoundingClientRect(), b=chipEl.getBoundingClientRect();
+  if(!a.width || !b.width) return;
+  const g=fromEl.cloneNode(true); g.className='flyer';
+  Object.assign(g.style,{left:a.left+'px', top:a.top+'px', width:a.width+'px', height:a.height+'px', fontSize:getComputedStyle(fromEl).fontSize});
+  document.body.append(g);
+  chipEl.style.opacity='0';
+  const dx=(b.left+b.width/2)-(a.left+a.width/2), dy=(b.top+b.height/2)-(a.top+a.height/2), s=Math.min(1, b.height/a.height);
+  const anim=g.animate([
+    {transform:'translate(0,0) scale(1)'},
+    {transform:`translate(${dx*0.5}px,${dy*0.5 - 18}px) scale(${(1+s)/2})`, offset:0.5},
+    {transform:`translate(${dx}px,${dy}px) scale(${s})`}
+  ], {duration:360, easing:'cubic-bezier(.3,.7,.2,1)'});
+  const land=()=>{ g.remove(); chipEl.style.opacity=''; if(chipEl.animate) chipEl.animate([{transform:'scale(.82)'},{transform:'scale(1)'}],{duration:260, easing:'cubic-bezier(.25,1,.5,1)'}); };
+  anim.onfinish=land; anim.oncancel=land;
+}
+
 /* ---------- Tekenen ---------- */
 function sym(w){
   const span = document.createElement('span'); span.className='s';
@@ -569,26 +658,55 @@ function sym(w){
   else span.textContent = w.emo;
   return span;
 }
-function lbl(w){ const s=document.createElement('span'); s.className='l'; s.textContent=wordText(w); return s; }
+const SHY={gehaktbal:'gehakt\u00ADbal', pannenkoek:'pannen\u00ADkoek', hagelslag:'hagel\u00ADslag', bellenblaas:'bellen\u00ADblaas',
+  verstoppertje:'verstop\u00ADpertje', chocomelk:'choco\u00ADmelk', limonade:'limo\u00ADnade', frikandel:'frikan\u00ADdel',
+  alsjeblieft:'alsje\u00ADblieft', verdrietig:'ver\u00ADdrietig', glijbaan:'glij\u00ADbaan', knuffelen:'knuffe\u00ADlen',
+  aankleden:'aan\u00ADkleden', schommel:'schom\u00ADmel', yoghurt:'yog\u00ADhurt'};
+function lbl(w){ const s=document.createElement('span'); const t=wordText(w); s.className = (t.length>7 && !t.includes(' ')) ? 'l long' : 'l'; s.textContent = SHY[t] || t; return s; }
 function tile(w){
   const b = document.createElement('button');
-  b.className = 'tile c-'+w.type; b.append(sym(w), lbl(w));
+  b.className = 'tile press c-'+w.type; b.append(sym(w), lbl(w));
   b.addEventListener('click', ()=>addWord(w, b));
   return b;
 }
 function blank(){ const d=document.createElement('div'); d.className='tile blank'; d.setAttribute('aria-hidden','true'); return d; }
 
 function renderCore(){ const c=$('core'); c.replaceChildren(...CORE.map(tile)); }
+let pillX=null, pillW=null;
 function renderTabs(){
-  $('tabs').replaceChildren(...CATS.map(k=>{
-    const b=document.createElement('button'); b.className='tab'; b.setAttribute('role','tab');
-    b.setAttribute('aria-selected', k.key===cat);
-    const s=document.createElement('span'); s.className='s'; const im=document.createElement('img'); im.src=SYM['tab:'+k.key]; im.alt=''; im.draggable=false; s.append(im);
-    const l=document.createElement('span'); l.className='l'; l.textContent=k.label;
-    b.append(s,l);
-    b.addEventListener('click', ()=>{ cat=k.key; renderTabs(); renderFringe(); });
-    return b;
-  }));
+  const box=$('tabs');
+  if(!box.dataset.built){
+    const pill=document.createElement('span'); pill.className='seg-pill'; pill.setAttribute('aria-hidden','true');
+    box.replaceChildren(pill, ...CATS.map(k=>{
+      const b=document.createElement('button'); b.className='tab'; b.setAttribute('role','tab'); b.dataset.key=k.key;
+      const s=document.createElement('span'); s.className='s'; const im=document.createElement('img'); im.src=SYM['tab:'+k.key]; im.alt=''; im.draggable=false; s.append(im);
+      const l=document.createElement('span'); l.className='l'; l.textContent=k.label;
+      b.append(s,l);
+      b.addEventListener('click', ()=>selectCat(k.key));
+      return b;
+    }));
+    pillX=new Spring(0, x=>{ pill.style.transform='translateX('+x+'px)'; });
+    pillW=new Spring(0, w=>{ pill.style.width=w+'px'; });
+    window.addEventListener('resize', ()=>placePill(false));
+    box.dataset.built='1';
+  }
+  box.querySelectorAll('.tab').forEach(b=>b.setAttribute('aria-selected', b.dataset.key===cat));
+  placePill(false);
+}
+function placePill(animate){
+  const b=$('tabs').querySelector('.tab[data-key="'+cat+'"]'); if(!b || !pillX) return;
+  const x=b.offsetLeft, w=b.offsetWidth;
+  if(animate){ pillX.to(x,{response:0.35, damping:0.86}); pillW.to(w,{response:0.35, damping:1}); }
+  else { pillX.set(x); pillW.set(w); }
+}
+function selectCat(key){
+  if(key===cat) return;
+  cat=key;
+  $('tabs').querySelectorAll('.tab').forEach(b=>b.setAttribute('aria-selected', b.dataset.key===cat));
+  placePill(true);
+  renderFringe();
+  const f=$('fringe');
+  if(!RM.matches && f.animate) f.animate([{opacity:0.35, transform:'scale(.985)'},{opacity:1, transform:'none'}],{duration:240, easing:'cubic-bezier(.25,1,.5,1)'});
 }
 function fringeWords(key){
   const k = CATS.find(c=>c.key===key);
@@ -631,16 +749,16 @@ function renderBar(){
   if(!msg.length){
     for(const s of topSentences()){
       const ws = s.ids.map(id=>LEX[id]);
-      const b=document.createElement('button'); b.className='sbtn sent';
+      const b=document.createElement('button'); b.className='sbtn press sent';
       b.textContent = '↻ ' + (state.settings.mode==='netjes' ? smooth(ws, state.name) : ws.map(wordText).join(' '));
       b.addEventListener('click', ()=>{ msg=[...ws]; renderBar(); speakSentence(); });
       sg.append(b);
     }
   }
   for(const w of suggestions()){
-    const b=document.createElement('button'); b.className='sbtn c-'+w.type;
+    const b=document.createElement('button'); b.className='sbtn press c-'+w.type;
     b.append(sym(w)); b.append(document.createTextNode(wordText(w)));
-    b.addEventListener('click', ()=>addWord(w));
+    b.addEventListener('click', ()=>addWord(w, b));
     sg.append(b);
   }
 }
@@ -652,7 +770,14 @@ $('undo').addEventListener('click', ()=>{ msg.pop(); renderBar(); });
 $('clear').addEventListener('click', ()=>{ msg=[]; renderBar(); });
 
 let toastT;
-function toast(t){ const el=$('toast'); el.textContent=t; el.hidden=false; clearTimeout(toastT); toastT=setTimeout(()=>el.hidden=true, 6000); }
+function toast(t){
+  const el=$('toast'); el.textContent=t; const wasHidden=el.hidden; el.hidden=false; clearTimeout(toastT);
+  if(wasHidden && !RM.matches && el.animate) el.animate([{opacity:0, transform:'translateX(-50%) translateY(-10px) scale(.96)', filter:'blur(6px)'},{opacity:1, transform:'translateX(-50%) translateY(0) scale(1)', filter:'blur(0)'}],{duration:320, easing:'cubic-bezier(.25,1,.5,1)'});
+  toastT=setTimeout(()=>{
+    if(!RM.matches && el.animate){ const a=el.animate([{opacity:1},{opacity:0, transform:'translateX(-50%) translateY(-10px) scale(.96)'}],{duration:220, easing:'ease-in'}); a.onfinish=()=>{ el.hidden=true; }; }
+    else el.hidden=true;
+  }, 6000);
+}
 
 /* Ouderknop: 1,5 seconde vasthouden */
 const lock=$('lock'); let holdT=null, justOpened=false;
@@ -679,11 +804,47 @@ function openSheet(){
   $('rate').value = state.settings.rate;
   $('addCat').replaceChildren(...CATS.map(c=>{ const o=document.createElement('option'); o.value=c.key; o.textContent=c.label; if(c.key===cat) o.selected=true; return o; }));
   fillVoiceSelect(); renderMine(); disarm();
-  $('sheet').hidden=false;
+  const sh=$('sheet');
+  if(sh.hidden){ sh.hidden=false; panel.scrollTop=0; sheetH=panel.offsetHeight||600; sheetY.set(sheetH); }
+  sheetY.to(0,{response:0.42, damping:1});
 }
-function closeSheet(){ $('sheet').hidden=true; renderAll(); }
-$('close').addEventListener('click', closeSheet);
-$('sheet').addEventListener('click', e=>{ if(e.target.id==='sheet') closeSheet(); });
+function closeSheet(velocity){
+  sheetH=panel.offsetHeight||sheetH||600;
+  sheetY.to(sheetH,{response:0.35, damping:1, velocity: velocity||0}, ()=>{ $('sheet').hidden=true; renderAll(); });
+}
+const panel=document.querySelector('.panel');
+let sheetH=600;
+const sheetY=new Spring(0, y=>{
+  panel.style.transform='translateY('+y+'px)';
+  const p=sheetH ? 1-Math.min(1, Math.max(0, y/sheetH)) : 1;
+  $('sheet').style.setProperty('--scrim', (0.3*p).toFixed(3));
+});
+$('close').addEventListener('click', ()=>closeSheet(0));
+$('sheet').addEventListener('click', e=>{ if(e.target.id==='sheet') closeSheet(0); });
+/* De sheet volgt je vinger; loslaten projecteert de snelheid, zoals op iOS */
+(function(){
+  const grab=document.querySelector('.grab'); let drag=null;
+  grab.addEventListener('pointerdown', e=>{
+    if(e.target.closest('button')) return;
+    try{ grab.setPointerCapture(e.pointerId); }catch(_){}
+    sheetY.stop(); drag={y0:e.clientY, s0:sheetY.x, hist:[[e.clientY, performance.now()]]};
+  });
+  grab.addEventListener('pointermove', e=>{
+    if(!drag) return;
+    let y=drag.s0+(e.clientY-drag.y0);
+    if(y<0) y=-rubberband(-y, sheetH);
+    sheetY.set(y);
+    drag.hist.push([e.clientY, performance.now()]); if(drag.hist.length>6) drag.hist.shift();
+  });
+  const end=()=>{
+    if(!drag) return;
+    const h=drag.hist, [y1,t1]=h[0], [y2,t2]=h[h.length-1];
+    const v = t2>t1 ? (y2-y1)/((t2-t1)/1000) : 0; drag=null;
+    if(sheetY.x + project(v) > sheetH*0.4) closeSheet(v);
+    else sheetY.to(0,{response:0.3, damping:0.8, velocity:v});
+  };
+  grab.addEventListener('pointerup', end); grab.addEventListener('pointercancel', end);
+})();
 
 function setPreview(el, photo, emo){
   el.replaceChildren();
