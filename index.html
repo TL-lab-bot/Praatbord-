@@ -168,10 +168,11 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:3px soli
 
 /* Voet */
 .lock{
-  position:relative; flex:none; width:44px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
-  border-radius:var(--r-card); border:0; background:var(--fill); color:var(--muted); overflow:hidden;
+  position:relative; min-width:0; min-height:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+  border-radius:var(--r-tile); border:1.5px dashed var(--sep); background:var(--fill); color:var(--muted); overflow:hidden; padding:2px;
 }
-.lock small{font-size:10px; font-weight:600}
+.lock .ico.sm{width:18px; height:18px}
+.lock small{font-size:11px; font-weight:600}
 .lock::before{content:""; position:absolute; inset:0; background:var(--accent); opacity:.25; transform:scaleY(0); transform-origin:bottom}
 .lock.holding::before{transition:transform 1.5s linear; transform:scaleY(1)}
 
@@ -256,7 +257,7 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:3px soli
   .sugg{height:34px} .sbtn{height:32px; font-size:13px} .sbtn .s img{width:22px; height:22px} .sugg .why{display:none}
   .tab{height:34px} .tab .l{display:none} .tab .s img{width:24px; height:24px}
   .pane{gap:3px; padding:3px} .board{gap:5px} .tile{border-radius:9px}
-  .lock{width:38px} .lock small{display:none}
+  .lock .ico.sm{width:14px; height:14px} .lock small{font-size:9px}
 }
 /* iPad: grotere kop, bordknoppen en zinsbalk; lange woorden niet kleiner maken */
 @media (min-width:700px) and (min-height:700px){
@@ -272,7 +273,7 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:3px soli
   .tab{height:60px} .tab .s img{width:32px; height:32px} .tab .l{font-size:12.5px; letter-spacing:0}
   .tile .l, .tile .l.long{font-size:clamp(12px, min(2.2vw, 1.6vh), 19px); letter-spacing:0}
   .tile .s img{max-width:min(76%, 84px); max-height:84px}
-  .lock{width:52px} .lock small{font-size:11px}
+  .lock .ico.sm{width:22px; height:22px} .lock small{font-size:13px}
 }
 @media (min-width:700px) and (min-height:600px) and (orientation:landscape){
   .app{gap:6px; padding-block:6px}
@@ -319,7 +320,6 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:3px soli
     <button class="msg press" id="msg" aria-label="Zin uitspreken"></button>
     <button class="iconbtn press" id="undo" aria-label="Wis woord"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5h11v14H9l-6-7z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 9l5 6M17 9l-5 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><small>woord</small></button>
     <button class="iconbtn press" id="clear" aria-label="Wis alles"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg><small>alles</small></button>
-    <button class="lock press" id="lock" aria-label="Ouderinstellingen, houd vast om te openen"><svg class="ico sm" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2" fill="currentColor"/><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2"/></svg><small>ouders</small></button>
   </div>
   <div class="sugg" id="sugg" aria-label="Suggesties"></div>
   <div class="tabs" id="tabs" role="tablist"></div>
@@ -334,7 +334,7 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:3px soli
     <div class="grab">
       <div class="handle" aria-hidden="true"></div>
       <header>
-        <div class="ttl"><h2 id="sheetTitle">Instellingen voor ouders</h2><span class="ver" id="ver">Versie 13 · 17 okt 2026</span></div>
+        <div class="ttl"><h2 id="sheetTitle">Instellingen voor ouders</h2><span class="ver" id="ver">Versie 14 · 17 okt 2026</span></div>
         <button class="btn press" id="close">Klaar</button>
       </header>
     </div>
@@ -409,6 +409,9 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:3px soli
 </div>
 
 <div class="toast" id="toast" hidden></div>
+<template id="lockTpl">
+    <button class="lock press" id="lock" aria-label="Ouderinstellingen, houd vast om te openen"><svg class="ico sm" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2" fill="currentColor"/><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2"/></svg><small>ouders</small></button>
+</template>
 
 <div class="rotate" id="rotate" role="alert">
   <svg class="rot-ico" viewBox="0 0 64 64" aria-hidden="true">
@@ -609,6 +612,7 @@ const CATS = [
     N('plekken','Eekhoorns','🐿️'), N('plekken','Pinocchio','🎈') ]}
 ];
 const SLOTS = 33;
+const WORD_SLOTS = SLOTS - 1; // laatste plek rechtsonder is de ouderknop
 const EXTRA = [];
 // Startbord: hele zinnen. '@' = zonder onderwerp
 const PHRASES = [
@@ -729,7 +733,7 @@ function countUse(w){
   const n = state.freq[w.id] = (state.freq[w.id]||0) + 1;
   const v = vaakIds();
   if(v.includes(w.id) || n < VAAK_MIN) return;
-  if(v.length < SLOTS){ v.push(w.id); }
+  if(v.length < WORD_SLOTS){ v.push(w.id); }
   else {
     // vol: het minst gebruikte woord maakt plaats, op dezelfde plek
     let lo=-1, loN=Infinity;
@@ -961,13 +965,14 @@ function selectCat(key){
 function fringeWords(key){
   const k = CATS.find(c=>c.key===key);
   if(k.phrases) return PHRASES.map((parts,i)=>({id:'zin:'+i, type:'phrase', parts}));
-  if(k.learned) return vaakIds().map(id=>LEX[id]).filter(Boolean).slice(0, SLOTS);
-  return [...k.words, ...state.custom.filter(w=>w.cat===key)].slice(0, SLOTS);
+  if(k.learned) return vaakIds().map(id=>LEX[id]).filter(Boolean).slice(0, WORD_SLOTS);
+  return [...k.words, ...state.custom.filter(w=>w.cat===key)].slice(0, WORD_SLOTS);
 }
 function renderFringe(){
   const ws = fringeWords(cat);
   const kids = ws.map(tile);
-  while(kids.length < SLOTS) kids.push(blank());
+  while(kids.length < WORD_SLOTS) kids.push(blank());
+  kids.push(lock); // dezelfde knop, zodat 'vasthouden' blijft werken
   $('fringe').replaceChildren(...kids);
   updateVerbLabels();
 }
@@ -1031,7 +1036,7 @@ function toast(t){
 }
 
 /* Ouderknop: 1,5 seconde vasthouden */
-const lock=$('lock'); let holdT=null, justOpened=false;
+const lock=document.getElementById('lockTpl').content.firstElementChild.cloneNode(true); let holdT=null, justOpened=false;
 function holdStart(e){ e.preventDefault(); justOpened=false; lock.classList.add('holding'); holdT=setTimeout(()=>{ holdEnd(); justOpened=true; openSheet(); }, 1500); }
 function holdEnd(){ clearTimeout(holdT); holdT=null; lock.classList.remove('holding'); }
 lock.addEventListener('pointerdown', holdStart);
@@ -1145,7 +1150,7 @@ $('addBtn').addEventListener('click', ()=>{
   const key=$('addCat').value, type=$('addType').value;
   if(!label){ toast('Vul eerst een woord in.'); return; }
   const k=CATS.find(c=>c.key===key);
-  if(k.words.length + state.custom.filter(w=>w.cat===key).length >= SLOTS){ toast('Het bord “'+k.label+'” is vol. Haal eerst een eigen woord weg.'); return; }
+  if(k.words.length + state.custom.filter(w=>w.cat===key).length >= WORD_SLOTS){ toast('Het bord “'+k.label+'” is vol. Haal eerst een eigen woord weg.'); return; }
   const id = key+':eigen:'+label+':'+Date.now().toString(36);
   const w = {id, cat:key, label, type, emo:$('addEmo').value.trim(), photo:addPhotoData};
   if(type==='pers') w.person='3s';
@@ -1211,7 +1216,7 @@ if(synth){ try{ loadVoices(); synth.onvoiceschanged = loadVoices; }catch(e){} }
 
 /* ---------- Start: voorbeeldzin zodat de nette-zin-functie meteen zichtbaar is ---------- */
 renderAll();
-const APP_VERSIE = '13';
+const APP_VERSIE = '14';
 if('serviceWorker' in navigator){
   const hadController = !!navigator.serviceWorker.controller;
   window.addEventListener('load', ()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));

@@ -1,5 +1,5 @@
 // Verhoog dit nummer als je index.html vervangt, dan halen telefoons de nieuwe versie op.
-const VERSIE = 'praatbord-13';
+const VERSIE = 'praatbord-14';
 const BESTANDEN = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
