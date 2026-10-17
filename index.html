@@ -88,6 +88,7 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:3px soli
   min-width:46px; height:52px; padding:3px 7px; border-radius:11px; border:1px solid;
 }
 .chip .s img{width:28px; height:28px; object-fit:contain; display:block}
+.chip.added{min-width:0; height:auto; padding:0 1px; border:0; background:transparent; font-family:var(--f-round); font-size:16px; font-weight:600; color:var(--muted)}
 .chip .l{font-family:var(--f-round); font-size:12px; font-weight:600; white-space:nowrap; letter-spacing:.01em}
 .iconbtn{
   flex:none; width:56px; border-radius:var(--r-card); color:var(--ink);
@@ -259,7 +260,6 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:3px soli
     <button class="iconbtn press" id="undo" aria-label="Wis woord"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5h11v14H9l-6-7z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 9l5 6M17 9l-5 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><small>woord</small></button>
     <button class="iconbtn press" id="clear" aria-label="Wis alles"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg><small>alles</small></button>
   </div>
-  <div class="said" id="said"></div>
   <div class="sugg" id="sugg" aria-label="Suggesties"></div>
   <div class="tabs" id="tabs" role="tablist"></div>
   <div class="board">
@@ -329,6 +329,7 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:3px soli
       <label class="check"><input type="radio" name="mode" value="netjes" id="modeNet"> Als nette zin (“ik willen friet” wordt “Ik wil friet.”)</label>
       <label class="check"><input type="radio" name="mode" value="precies" id="modePre"> Precies de getikte woorden</label>
       <label class="check"><input type="checkbox" id="eachWord"> Elk woord meteen uitspreken bij tikken</label>
+      <label class="check"><input type="checkbox" id="liveVerbs"> Werkwoorden meteen vervoegen op de knoppen (na “ik”: wil, ben, heb)</label>
       <label class="check"><input type="checkbox" id="phraseName"> Zinnen op het startbord met de naam van je kind in plaats van “ik”</label>
       <div class="row">
         <label>Stem<select id="voice"></select></label>
@@ -373,16 +374,16 @@ const EEN = new Set(['boterham','appel','banaan','koekje','ijsje','snoepje','pan
 const SPREAD = new Set(['pindakaas','kaas','jam','hagelslag']);
 const BREAD = new Set(['boterham','brood','cracker']);
 const POSS = new Set(['fiep','egel','knuffel','fles']);
-function smooth(words, nameText){
-  if(!words.length) return '';
+function smoothTokens(words, nameText){
+  if(!words.length) return {t:[], isQ:false};
   const txt = w => w.type==='name' ? (nameText||'ik') : w.label;
-  let t = words.map(w => ({w, s:txt(w)}));
+  let t = words.map((w,i) => ({w, s:txt(w), i}));
   const isSubj = x => x.w.type==='pers' || x.w.type==='name';
   const isVerb = x => x.w.type==='verb';
   const isQ = t[0].w.type==='q';
   let si = t.findIndex(isSubj), vi = t.findIndex(isVerb);
   // "waar mama" -> "waar is mama"
-  if(isQ && vi<0 && si>0){ t.splice(1,0,{w:{type:'verb',label:'zijn'}, s:'zijn'}); si++; vi=1; }
+  if(isQ && vi<0 && si>0){ t.splice(1,0,{w:{type:'verb',label:'zijn'}, s:'zijn', added:true}); si++; vi=1; }
   // vraag: vraagwoord, werkwoord, onderwerp, rest
   if(isQ && si>0 && vi>0){
     const q=t[0], v=t[vi], s=t[si];
@@ -398,7 +399,7 @@ function smooth(words, nameText){
       const p = subj ? ((subj.w.type==='name' && !nameText) ? '1s' : (subj.w.person||'3s')) : '1s';
       const after = subj && t.indexOf(subj) > fi;
       const f = p==='1s' ? forms[0] : p==='2s' ? (after ? forms[4] : forms[1]) : p==='3s' ? forms[2] : forms[3];
-      t[fi] = {w:t[fi].w, s:f};
+      t[fi] = {...t[fi], s:f};
       if(forms[5]){ // tweede werkwoord achteraan: "ik wil friet eten"
         const j = t.findIndex((x,i)=> i>fi && isVerb(x));
         if(j>=0 && j<t.length-1){ const [x]=t.splice(j,1); t.push(x); }
@@ -409,16 +410,20 @@ function smooth(words, nameText){
   const out=[], S0=t.find(isSubj);
   for(const x of t){
     const prev=out[out.length-1], L=x.w.label;
-    if(prev && prev.w.label==='naar' && ART[L]) out.push({w:{type:'small'}, s:ART[L]});
-    else if(prev && EEN.has(L) && (prev.w.type==='verb' || prev.w.label==='nog')) out.push({w:{type:'small'}, s:'een'});
-    else if(prev && SPREAD.has(L) && BREAD.has(prev.w.label)) out.push({w:{type:'small'}, s:'met'});
+    if(prev && prev.w.label==='naar' && ART[L]) out.push({w:{type:'small'}, s:ART[L], added:true});
+    else if(prev && EEN.has(L) && (prev.w.type==='verb' || prev.w.label==='nog')) out.push({w:{type:'small'}, s:'een', added:true});
+    else if(prev && SPREAD.has(L) && BREAD.has(prev.w.label)) out.push({w:{type:'small'}, s:'met', added:true});
     else if(prev && POSS.has(L) && prev.w.type==='verb' && S0){
       const pp = S0.w.type==='name' ? (nameText ? 'zijn' : 'mijn') : ({'1s':'mijn','2s':'jouw','1p':'onze'})[S0.w.person];
-      if(pp) out.push({w:{type:'small'}, s:pp});
+      if(pp) out.push({w:{type:'small'}, s:pp, added:true});
     }
     out.push(x);
   }
-  t=out;
+  return {t:out, isQ};
+}
+function smooth(words, nameText){
+  if(!words.length) return '';
+  const {t, isQ} = smoothTokens(words, nameText);
   let s = t.map(x=>x.s).join(' ');
   s = s.charAt(0).toUpperCase() + s.slice(1);
   return s + (isQ ? '?' : '.');
@@ -512,7 +517,7 @@ const PHRASES = [
 
 /* ---------- Opslag ---------- */
 const KEY = 'praatbord.v1';
-const DEF = {name:'', namePhoto:null, custom:[], settings:{mode:'netjes', eachWord:true, voice:'', rate:0.9, phraseSubj:'ik'}, people:{}, bi:{}, sent:{}};
+const DEF = {name:'', namePhoto:null, custom:[], settings:{mode:'netjes', eachWord:true, voice:'', rate:0.9, phraseSubj:'ik', liveVerbs:true}, people:{}, bi:{}, sent:{}};
 function load(){
   try{
     const raw = localStorage.getItem(KEY);
@@ -544,6 +549,28 @@ const wordText = w => w.type==='name' ? (state.name || 'naam') : (pp(w).name || 
 // zinslogica krijgt de eigen namen mee
 const named = ws => ws.map(w => pp(w).name ? {...w, label: pp(w).name} : w);
 const nice = ws => smooth(named(ws), state.name);
+const niceTokens = ws => smoothTokens(named(ws), state.name).t;
+const liveOn = () => state.settings.liveVerbs && state.settings.mode==='netjes';
+// Welke vorm hoort er nu op een werkwoordknop? Alleen vervoegen als er een onderwerp staat en nog geen werkwoord.
+function verbFormFor(label){
+  const forms = VERBS[label];
+  if(!forms || !liveOn()) return label;
+  const subj = msg.find(w=>w.type==='pers' || w.type==='name');
+  if(!subj || msg.some(w=>w.type==='verb')) return label;
+  const p = subj.type==='name' ? (state.name ? '3s' : '1s') : (subj.person||'3s');
+  return p==='1s' ? forms[0] : p==='2s' ? forms[1] : p==='3s' ? forms[2] : forms[3];
+}
+const tileText = w => w.type==='verb' ? verbFormFor(w.label) : wordText(w);
+function updateVerbLabels(){
+  document.querySelectorAll('[data-verb]').forEach(el=>{
+    const l=el.querySelector('.l'); if(!l) return;
+    const t=verbFormFor(el.dataset.verb), shown=SHY[t]||t;
+    if(l.textContent!==shown){
+      l.textContent=shown;
+      if(!RM.matches && l.animate) l.animate([{opacity:0.2, transform:'translateY(3px)'},{opacity:1, transform:'none'}],{duration:220, easing:'cubic-bezier(.25,1,.5,1)'});
+    }
+  });
+}
 
 /* ---------- Spraak ---------- */
 const synth = window.speechSynthesis;
@@ -598,10 +625,11 @@ function learnSentence(){
 }
 function addWord(w, el){
   learnPair(msg.length ? msg[msg.length-1].id : '^', w.id);
+  const spoken = tileText(w);
   msg.push(w); save();
-  if(state.settings.eachWord) speak(wordText(w));
+  if(state.settings.eachWord) speak(spoken);
   renderBar();
-  if(el) fly(el.querySelector('.s'), $('msg').lastElementChild);
+  if(el) fly(el.querySelector('.s'), $('msg').querySelector('[data-i="'+(msg.length-1)+'"]'));
 }
 function speakSentence(){
   if(!msg.length) return;
@@ -752,7 +780,7 @@ function phraseTile(ph){
   b.addEventListener('click', ()=>{
     msg=[...ws]; renderBar();
     speak(nice(msg)); learnSentence();
-    fly(b.querySelector('.s'), $('msg').lastElementChild);
+    fly(b.querySelector('.s'), $('msg').querySelector('[data-i="'+(msg.length-1)+'"]'));
   });
   return b;
 }
@@ -760,6 +788,7 @@ function tile(w){
   if(w.type==='phrase') return phraseTile(w);
   const b = document.createElement('button');
   b.className = 'tile press c-'+w.type; b.append(sym(w), lbl(w));
+  if(w.type==='verb') b.dataset.verb = w.label;
   b.addEventListener('click', ()=>addWord(w, b));
   return b;
 }
@@ -812,30 +841,28 @@ function renderFringe(){
   const kids = ws.map(tile);
   while(kids.length < SLOTS) kids.push(blank());
   $('fringe').replaceChildren(...kids);
+  updateVerbLabels();
 }
-function chip(w){
-  const d=document.createElement('span'); d.className='chip c-'+w.type; d.append(sym(w));
-  const l=document.createElement('span'); l.className='l'; l.textContent=wordText(w); d.append(l);
+function chip(w, text, i){
+  const d=document.createElement('span'); d.className='chip c-'+w.type; d.append(sym(w)); d.dataset.i=i;
+  const l=document.createElement('span'); l.className='l'; l.textContent=text; d.append(l);
   return d;
+}
+function addedChip(text){
+  const d=document.createElement('span'); d.className='chip added'; d.textContent=text; return d;
 }
 function renderBar(){
   const m=$('msg'); m.replaceChildren();
   const say=document.createElement('span'); say.className='say'; say.innerHTML=SPEAKER; m.append(say);
   m.classList.toggle('has', msg.length>0);
   if(!msg.length){ const e=document.createElement('span'); e.className='empty'; e.textContent='Tik woorden, tik hier om te zeggen'; m.append(e); }
-  msg.forEach(w=>m.append(chip(w)));
-  m.scrollLeft = m.scrollWidth;
-
-  const said=$('said'); said.replaceChildren();
-  if(msg.length && state.settings.mode==='netjes'){
-    const plain = msg.map(wordText).join(' ');
-    const niceTxt = nice(msg);
-    if(niceTxt.replace(/[.?]$/,'').toLowerCase() !== plain.toLowerCase()){
-      const k=document.createElement('span'); k.textContent='Zo klinkt het:';
-      const b=document.createElement('b'); b.textContent=niceTxt;
-      said.append(k,b);
+  if(state.settings.mode==='netjes'){
+    for(const tok of niceTokens(msg)){
+      if(tok.added || tok.i===undefined) m.append(addedChip(tok.s));
+      else m.append(chip(msg[tok.i], tok.s, tok.i));
     }
-  }
+  } else msg.forEach((w,i)=>m.append(chip(w, wordText(w), i)));
+  m.scrollLeft = m.scrollWidth;
 
   const sg=$('sugg'); sg.replaceChildren();
   const why=document.createElement('span'); why.className='why';
@@ -852,10 +879,11 @@ function renderBar(){
   }
   for(const w of suggestions()){
     const b=document.createElement('button'); b.className='sbtn press c-'+w.type;
-    b.append(sym(w)); b.append(document.createTextNode(wordText(w)));
+    b.append(sym(w)); b.append(document.createTextNode(tileText(w)));
     b.addEventListener('click', ()=>addWord(w, b));
     sg.append(b);
   }
+  updateVerbLabels();
 }
 function renderAll(){ rebuildLex(); renderCore(); renderTabs(); renderFringe(); renderBar(); }
 
@@ -899,6 +927,7 @@ function openSheet(){
   $('rate').value = state.settings.rate;
   $('addCat').replaceChildren(...CATS.filter(c=>!c.phrases).map(c=>{ const o=document.createElement('option'); o.value=c.key; o.textContent=c.label; if(c.key===cat) o.selected=true; return o; }));
   $('phraseName').checked = state.settings.phraseSubj==='naam';
+  $('liveVerbs').checked = !!state.settings.liveVerbs;
   fillVoiceSelect(); renderMine(); renderPeople(); disarm();
   const sh=$('sheet');
   if(sh.hidden){ sh.hidden=false; panel.scrollTop=0; sheetH=panel.offsetHeight||600; sheetY.set(sheetH); }
@@ -1032,6 +1061,7 @@ function renderMine(){
 }
 document.querySelectorAll('input[name=mode]').forEach(r=>r.addEventListener('change', e=>{ state.settings.mode=e.target.value; save(); }));
 $('eachWord').addEventListener('change', e=>{ state.settings.eachWord=e.target.checked; save(); });
+$('liveVerbs').addEventListener('change', e=>{ state.settings.liveVerbs=e.target.checked; save(); });
 $('phraseName').addEventListener('change', e=>{ state.settings.phraseSubj = e.target.checked ? 'naam' : 'ik'; save(); if(!state.name && e.target.checked) toast('Vul eerst de naam in, anders blijft het “ik”.'); });
 $('voice').addEventListener('change', e=>{ state.settings.voice=e.target.value; save(); });
 $('rate').addEventListener('input', e=>{ state.settings.rate=parseFloat(e.target.value); save(); });
