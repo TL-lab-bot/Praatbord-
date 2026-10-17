@@ -163,9 +163,6 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:3px soli
 .c-phrase{background:var(--phrase); border-color:var(--phrase-b)}
 .tile.c-phrase .l{font-size:clamp(9.5px, min(2.6vw, 2vh), 15px); -webkit-line-clamp:3; line-height:1.08; letter-spacing:-.01em}
 
-/* Pictogram dat naar de zinsbalk vliegt */
-.flyer{position:fixed; z-index:40; pointer-events:none; display:flex; align-items:center; justify-content:center; line-height:1; will-change:transform,opacity}
-.flyer img{width:100%; height:100%; object-fit:contain; display:block}
 
 /* Voet */
 .lock{
@@ -336,7 +333,7 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:3px soli
     <div class="grab">
       <div class="handle" aria-hidden="true"></div>
       <header>
-        <div class="ttl"><h2 id="sheetTitle">Instellingen voor ouders</h2><span class="ver" id="ver">Versie 15 · 17 okt 2026</span></div>
+        <div class="ttl"><h2 id="sheetTitle">Instellingen voor ouders</h2><span class="ver" id="ver">Versie 16 · 17 okt 2026</span></div>
         <button class="btn press" id="close">Klaar</button>
       </header>
     </div>
@@ -762,7 +759,6 @@ function addWord(w, el){
   msg.push(w); save();
   if(state.settings.eachWord) speak(spoken);
   renderBar();
-  if(el) fly(el.querySelector('.s'), $('msg').querySelector('[data-i="'+(msg.length-1)+'"]'));
 }
 function speakSentence(){
   if(!msg.length) return;
@@ -877,24 +873,6 @@ document.addEventListener('click', e=>{
   if(pressed && pressOut && pressed.contains(e.target)){ e.stopImmediatePropagation(); e.preventDefault(); }
 }, true);
 
-/* Het plaatje vliegt van de knop naar de zinsbalk */
-function fly(fromEl, chipEl){
-  if(RM.matches || !fromEl || !chipEl || !document.body.animate) return;
-  const a=fromEl.getBoundingClientRect(), b=chipEl.getBoundingClientRect();
-  if(!a.width || !b.width) return;
-  const g=fromEl.cloneNode(true); g.className='flyer';
-  Object.assign(g.style,{left:a.left+'px', top:a.top+'px', width:a.width+'px', height:a.height+'px', fontSize:getComputedStyle(fromEl).fontSize});
-  document.body.append(g);
-  chipEl.style.opacity='0';
-  const dx=(b.left+b.width/2)-(a.left+a.width/2), dy=(b.top+b.height/2)-(a.top+a.height/2), s=Math.min(1, b.height/a.height);
-  const anim=g.animate([
-    {transform:'translate(0,0) scale(1)'},
-    {transform:`translate(${dx*0.5}px,${dy*0.5 - 18}px) scale(${(1+s)/2})`, offset:0.5},
-    {transform:`translate(${dx}px,${dy}px) scale(${s})`}
-  ], {duration:360, easing:'cubic-bezier(.3,.7,.2,1)'});
-  const land=()=>{ g.remove(); chipEl.style.opacity=''; if(chipEl.animate) chipEl.animate([{transform:'scale(.82)'},{transform:'scale(1)'}],{duration:260, easing:'cubic-bezier(.25,1,.5,1)'}); };
-  anim.onfinish=land; anim.oncancel=land;
-}
 
 /* ---------- Tekenen ---------- */
 function sym(w){
@@ -927,7 +905,6 @@ function phraseTile(ph){
   b.addEventListener('click', ()=>{
     msg=[...ws]; renderBar();
     speak(nice(msg)); learnSentence();
-    fly(b.querySelector('.s'), $('msg').querySelector('[data-i="'+(msg.length-1)+'"]'));
   });
   return b;
 }
@@ -1248,7 +1225,7 @@ if(synth){ try{ loadVoices(); synth.onvoiceschanged = loadVoices; }catch(e){} }
 
 /* ---------- Start: voorbeeldzin zodat de nette-zin-functie meteen zichtbaar is ---------- */
 renderAll();
-const APP_VERSIE = '15';
+const APP_VERSIE = '16';
 if('serviceWorker' in navigator){
   const hadController = !!navigator.serviceWorker.controller;
   window.addEventListener('load', ()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
