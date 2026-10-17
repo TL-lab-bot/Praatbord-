@@ -88,6 +88,7 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:3px soli
   min-width:46px; height:52px; padding:3px 7px; border-radius:11px; border:1px solid;
 }
 .chip .s img{width:28px; height:28px; object-fit:contain; display:block}
+.chip.added.comma{margin-left:-6px}
 .chip.added{min-width:0; height:auto; padding:0 1px; border:0; background:transparent; font-family:var(--f-round); font-size:16px; font-weight:600; color:var(--muted)}
 .chip .l{font-family:var(--f-round); font-size:12px; font-weight:600; white-space:nowrap; letter-spacing:.01em}
 .iconbtn{
@@ -445,10 +446,29 @@ const EEN = new Set(['boterham','appel','banaan','koekje','ijsje','snoepje','pan
 const SPREAD = new Set(['pindakaas','kaas','jam','hagelslag']);
 const BREAD = new Set(['boterham','brood','cracker']);
 const POSS = new Set(['fiep','egel','knuffel','fles']);
+// Twee of meer dingen achter elkaar zonder 'en': "egel fiep" -> "egel en fiep", "appelsap fiep egel" -> "appelsap, fiep en egel"
+function autoEn(t){
+  const cls = x => (x.w.type==='pers' || x.w.type==='name') ? 'subj' : x.w.type==='noun' ? 'noun' : x.w.type==='adj' ? 'adj' : null;
+  const out=[]; let i=0;
+  while(i<t.length){
+    const c=cls(t[i]);
+    if(!c){ out.push(t[i]); i++; continue; }
+    let j=i+1;
+    while(j<t.length && cls(t[j])===c && !(BREAD.has(t[j-1].w.label) && SPREAD.has(t[j].w.label))) j++;
+    const run=t.slice(i,j);
+    run.forEach((x,k)=>{
+      if(k>0) out.push({w:{type:'small', label: k===run.length-1 ? 'en' : ','}, s: k===run.length-1 ? 'en' : ',', added:true});
+      out.push(x);
+    });
+    i=j;
+  }
+  return out;
+}
 function smoothTokens(words, nameText){
   if(!words.length) return {t:[], isQ:false};
   const txt = w => w.type==='name' ? (nameText||'ik') : w.label;
   let t = words.map((w,i) => ({w, s:txt(w), i}));
+  t = autoEn(t);
   const isSubj = x => x.w.type==='pers' || x.w.type==='name';
   const isVerb = x => x.w.type==='verb';
   const isQ = t[0].w.type==='q';
@@ -466,8 +486,10 @@ function smoothTokens(words, nameText){
     const forms = VERBS[t[fi].w.label];
     const subj = t.find(isSubj);
     const finite = subj || fi===0 || (isQ && fi===1);
+    const pre = t.slice(0, fi), subjs = pre.filter(isSubj);
+    const plural = subjs.length>=2 && pre.some(x=>x.w.label==='en');
     if(forms && finite){
-      const p = subj ? ((subj.w.type==='name' && !nameText) ? '1s' : (subj.w.person||'3s')) : '1s';
+      const p = plural ? '1p' : subj ? ((subj.w.type==='name' && !nameText) ? '1s' : (subj.w.person||'3s')) : '1s';
       const after = subj && t.indexOf(subj) > fi;
       const f = p==='1s' ? forms[0] : p==='2s' ? (after ? forms[4] : forms[1]) : p==='3s' ? forms[2] : forms[3];
       t[fi] = {...t[fi], s:f};
@@ -479,13 +501,18 @@ function smoothTokens(words, nameText){
   }
   // lidwoord na 'naar', 'een' na een werkwoord of 'nog', 'met' tussen brood en beleg
   const out=[], S0=t.find(isSubj);
+  const vi0=t.findIndex(isVerb), subjAll=(vi0>0 ? t.slice(0,vi0) : []).filter(isSubj);
+  const plur = subjAll.length>=2 && t.slice(0,Math.max(vi0,0)).some(x=>x.w.label==='en');
+  const meIn = subjAll.some(x=>x.w.person==='1s' || (x.w.type==='name' && !nameText));
   for(const x of t){
     const prev=out[out.length-1], L=x.w.label;
-    if(prev && prev.w.label==='naar' && ART[L]) out.push({w:{type:'small'}, s:ART[L], added:true});
-    else if(prev && EEN.has(L) && (prev.w.type==='verb' || prev.w.label==='nog')) out.push({w:{type:'small'}, s:'een', added:true});
+    const objEn = prev && (prev.w.label==='en' || prev.w.label===',') && out.some(isVerb); // 'en' of komma tussen dingen na het werkwoord
+    const naarCtx = objEn && (()=>{ for(let k=out.length-1;k>=0;k--){ const l=out[k].w.label; if(l==='naar') return true; if(out[k].w.type==='verb') return false; } return false; })();
+    if(prev && (prev.w.label==='naar' || naarCtx) && ART[L]) out.push({w:{type:'small'}, s:ART[L], added:true});
+    else if(prev && EEN.has(L) && (prev.w.type==='verb' || prev.w.label==='nog' || objEn)) out.push({w:{type:'small'}, s:'een', added:true});
     else if(prev && SPREAD.has(L) && BREAD.has(prev.w.label)) out.push({w:{type:'small'}, s:'met', added:true});
-    else if(prev && POSS.has(L) && prev.w.type==='verb' && S0){
-      const pp = S0.w.type==='name' ? (nameText ? 'zijn' : 'mijn') : ({'1s':'mijn','2s':'jouw','1p':'onze'})[S0.w.person];
+    else if(prev && POSS.has(L) && (prev.w.type==='verb' || objEn) && S0){
+      const pp = plur ? (meIn ? 'onze' : 'hun') : S0.w.type==='name' ? (nameText ? 'zijn' : 'mijn') : ({'1s':'mijn','2s':'jouw','1p':'onze'})[S0.w.person];
       if(pp) out.push({w:{type:'small'}, s:pp, added:true});
     }
     out.push(x);
@@ -495,7 +522,7 @@ function smoothTokens(words, nameText){
 function smooth(words, nameText){
   if(!words.length) return '';
   const {t, isQ} = smoothTokens(words, nameText);
-  let s = t.map(x=>x.s).join(' ');
+  let s = t.map(x=>x.s).join(' ').replace(/ ,/g, ',');
   s = s.charAt(0).toUpperCase() + s.slice(1);
   return s + (isQ ? '?' : '.');
 }
@@ -515,7 +542,7 @@ const COL2 = [V('kern','willen','🫴'), V('kern','gaan','➡️'), V('kern','zi
   V('kern','drinken','🥤'), V('kern','spelen','🪁'), V('kern','slapen','😴'), V('kern','kijken','👀'), V('kern','doen','🙌'), V('kern','mogen','🙆')];
 const COL3 = [W('kern','naar','➡️','prep'), W('extra','dit','👇','small'), W('extra','dat','👉','small'), W('kern','zo','🫱','small'),
   W('kern','niet','🚫','small'), W('kern','nog','🔁','small'), W('kern','meer','➕','small'), W('kern','ja','👍','social'),
-  W('kern','nee','👎','social'), W('kern','waar','❓','q'), W('kern','klaar','✅','social')];
+  W('kern','nee','👎','social'), W('kern','waar','❓','q'), W('kern','en','➕','small')];
 const CORE = COL1.flatMap((w,r)=>[w, COL2[r], COL3[r]]);
 const CORE_IDS = new Set(CORE.map(w=>w.id));
 // Startvulling van het bord Vaak; maakt plaats zodra andere woorden vaker gebruikt worden
@@ -567,7 +594,7 @@ const CATS = [
     S('mensen','hoi','👋'), S('mensen','dag','🙋'), S('mensen','dank je wel','🙏'),
     S('mensen','alsjeblieft','🤲'), S('mensen','sorry','😔'), S('mensen','oké','👌'),
     S('mensen','oh oh','😮'), S('mensen','weet ik niet','🤷'), S('mensen','kijk eens','👉'),
-    W('kern','help','🛟','social'), W('kern','wat','❔','q'), W('kern','en','➕','small'),
+    W('kern','help','🛟','social'), W('kern','wat','❔','q'), W('kern','klaar','✅','social'),
     W('mensen','juf','👩‍🏫','pers',{person:'3s'}), W('mensen','baby','👶','pers',{person:'3s'}), N('mensen','poes','🐱') ]},
   {key:'plekken', label:'Plekken', emo:'🏠', words:[
     N('plekken','bed','🛏️'), N('plekken','buiten','🌳'), N('plekken','binnen','🚪'),
@@ -633,7 +660,8 @@ function verbFormFor(label){
   if(!forms || !liveOn()) return label;
   const subj = msg.find(w=>w.type==='pers' || w.type==='name');
   if(!subj || msg.some(w=>w.type==='verb')) return label;
-  const p = subj.type==='name' ? (state.name ? '3s' : '1s') : (subj.person||'3s');
+  const subjCount = msg.filter(w=>w.type==='pers' || w.type==='name').length;
+  const p = (subjCount>=2) ? '1p' : subj.type==='name' ? (state.name ? '3s' : '1s') : (subj.person||'3s');
   return p==='1s' ? forms[0] : p==='2s' ? forms[1] : p==='3s' ? forms[2] : forms[3];
 }
 const tileText = w => w.type==='verb' ? verbFormFor(w.label) : wordText(w);
@@ -760,11 +788,11 @@ function ruleLabels(last){
   if(L==='naar') return ['bed','buiten','binnen','wc','badkamer','huis'];
   if(L==='boterham' || L==='brood') return ['pindakaas','kaas','jam','hagelslag'];
   if(L==='wat') return ['jij','mama','papa','zijn','doen'];
-  if(L==='en') return ['mama','papa','kaas','pindakaas','spelen'];
+  if(L==='en'){ const hasVerb = msg.some(w=>w.type==='verb'); return hasVerb ? ['fiep','egel','appelsap','water','koekje','mama'] : ['mama','papa','zus','broer','Rupert','ik']; }
   if(L==='waar') return ['mama','papa','zus','broer','Rupert','egel','fiep'];
   if(L==='nog' || L==='meer') return [...per.food.slice(0,3), 'water','spelen'];
   if(L==='niet') return ['willen','lekker','leuk','klaar','slapen'];
-  if(last.type==='noun' || last.type==='adj') return ['meer','nog','niet','klaar','lekker'];
+  if(last.type==='noun' || last.type==='adj') return ['en','meer','nog','niet','lekker'];
   if(last.type==='social') return ['mama','papa','ik'];
   if(last.type==='verb') return ['niet','meer','mama','papa','klaar'];
   return [];
@@ -947,7 +975,7 @@ function chip(w, text, i){
   return d;
 }
 function addedChip(text){
-  const d=document.createElement('span'); d.className='chip added'; d.textContent=text; return d;
+  const d=document.createElement('span'); d.className = text===',' ? 'chip added comma' : 'chip added'; d.textContent=text; return d;
 }
 function renderBar(){
   const m=$('msg'); m.replaceChildren();
