@@ -258,6 +258,17 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:3px soli
   .foot > span{display:none}
   .lock{height:24px; padding:0 9px; font-size:11px}
 }
+/* iPhone liggend: te weinig hoogte voor kindvriendelijke knoppen */
+.rotate{display:none}
+@media (orientation:landscape) and (max-height:500px) and (pointer:coarse){
+  body:not(.allow-land) .rotate{display:flex; position:fixed; inset:0; z-index:50; background:var(--bg); color:var(--ink);
+    flex-direction:column; align-items:center; justify-content:center; gap:10px; text-align:center;
+    padding:max(16px, env(safe-area-inset-top, 0px)) max(24px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(24px, env(safe-area-inset-left, 0px))}
+  body:not(.allow-land) .app{visibility:hidden}
+  .rot-ico{width:64px; height:64px; color:var(--accent)}
+  .rot-t{margin:0; font-size:22px; font-weight:700; letter-spacing:-.02em}
+  .rot-s{margin:0; max-width:46ch; font-size:14px; line-height:1.45; color:var(--muted)}
+}
 @media (prefers-reduced-motion: reduce){
   .press, .press.is-pressed{transition:none; transform:none}
   .press.is-pressed{filter:brightness(.92)}
@@ -375,6 +386,18 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:3px soli
 </div>
 
 <div class="toast" id="toast" hidden></div>
+
+<div class="rotate" id="rotate" role="alert">
+  <svg class="rot-ico" viewBox="0 0 64 64" aria-hidden="true">
+    <rect x="22" y="8" width="20" height="36" rx="4" fill="none" stroke="currentColor" stroke-width="3"/>
+    <circle cx="32" cy="38" r="1.8" fill="currentColor"/>
+    <path d="M12 46a22 22 0 0 0 34 10" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+    <path d="M40 52l7 4-3 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+  <p class="rot-t">Draai de telefoon rechtop</p>
+  <p class="rot-s">Liggend worden de knoppen te klein om goed te tikken. Tip: zet in het bedieningspaneel de schermrotatie vast (het slotje), dan blijft het scherm rechtop staan.</p>
+  <button class="btn ghost press" id="rotateSkip">Toch liggend gebruiken</button>
+</div>
 
 <script>
 const $ = id => document.getElementById(id);
@@ -970,6 +993,10 @@ lock.addEventListener('click', e=>{
   justOpened=false;
 });
 lock.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); openSheet(); } });
+
+/* Liggend op de telefoon: volwassenen kunnen het scherm wegklikken (alleen voor deze sessie) */
+try{ if(sessionStorage.getItem('praatbord.land')==='1') document.body.classList.add('allow-land'); }catch(e){}
+$('rotateSkip').addEventListener('click', ()=>{ document.body.classList.add('allow-land'); try{ sessionStorage.setItem('praatbord.land','1'); }catch(e){} });
 
 /* ---------- Ouderpaneel ---------- */
 let addPhotoData = null;
