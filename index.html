@@ -333,7 +333,7 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:3px soli
     <div class="grab">
       <div class="handle" aria-hidden="true"></div>
       <header>
-        <div class="ttl"><h2 id="sheetTitle">Instellingen voor ouders</h2><span class="ver" id="ver">Versie 16 · 17 okt 2026</span></div>
+        <div class="ttl"><h2 id="sheetTitle">Instellingen voor ouders</h2><span class="ver" id="ver">Versie 17 · 19 okt 2026</span></div>
         <button class="btn press" id="close">Klaar</button>
       </header>
     </div>
@@ -385,6 +385,7 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:3px soli
       <label class="check"><input type="radio" name="mode" value="netjes" id="modeNet"> Als nette zin (“ik willen friet” wordt “Ik wil friet.”)</label>
       <label class="check"><input type="radio" name="mode" value="precies" id="modePre"> Precies de getikte woorden</label>
       <label class="check"><input type="checkbox" id="eachWord"> Elk woord meteen uitspreken bij tikken</label>
+      <label class="check"><input type="checkbox" id="ignoreMute"> Ook praten als de telefoon op stil staat (zoals bij filmpjes)</label>
       <label class="check"><input type="checkbox" id="liveVerbs"> Werkwoorden meteen vervoegen op de knoppen (na “ik”: wil, ben, heb)</label>
       <label class="check"><input type="checkbox" id="phraseName"> Zinnen op het startbord met de naam van je kind in plaats van “ik”</label>
       <div class="row">
@@ -625,7 +626,7 @@ const PHRASES = [
 
 /* ---------- Opslag ---------- */
 const KEY = 'praatbord.v1';
-const DEF = {name:'', namePhoto:null, custom:[], settings:{mode:'netjes', eachWord:true, voice:'', rate:0.9, phraseSubj:'ik', liveVerbs:true}, people:{}, bi:{}, sent:{}, freq:{}, vaak:null};
+const DEF = {name:'', namePhoto:null, custom:[], settings:{mode:'netjes', eachWord:true, voice:'', rate:0.9, phraseSubj:'ik', liveVerbs:true, ignoreMute:true}, people:{}, bi:{}, sent:{}, freq:{}, vaak:null};
 function load(){
   try{
     const raw = localStorage.getItem(KEY);
@@ -691,9 +692,45 @@ function loadVoices(){
   fillVoiceSelect();
 }
 let warned = false;
+/* Stille modus: iOS volgt voor spraak de stil-schakelaar. Als de app zich als media-speler meldt
+   (audioSession 'playback' plus een stil meelopend geluid), speelt hij net als een filmpje gewoon door. */
+let keepAlive = null, silentUrl = null;
+function silentWav(){
+  if(silentUrl) return silentUrl;
+  const rate=8000, n=rate; const buf=new ArrayBuffer(44+n), v=new DataView(buf);
+  const str=(o,s)=>{ for(let i=0;i<s.length;i++) v.setUint8(o+i, s.charCodeAt(i)); };
+  str(0,'RIFF'); v.setUint32(4,36+n,true); str(8,'WAVE'); str(12,'fmt '); v.setUint32(16,16,true);
+  v.setUint16(20,1,true); v.setUint16(22,1,true); v.setUint32(24,rate,true); v.setUint32(28,rate,true);
+  v.setUint16(32,1,true); v.setUint16(34,8,true); str(36,'data'); v.setUint32(40,n,true);
+  for(let i=0;i<n;i++) v.setUint8(44+i,128); // 8-bit stilte
+  try{ silentUrl = URL.createObjectURL(new Blob([buf],{type:'audio/wav'})); }catch(e){ silentUrl=null; }
+  return silentUrl;
+}
+function audioUnlock(){
+  if(!state.settings.ignoreMute) return;
+  try{ if(navigator.audioSession && navigator.audioSession.type!=='playback') navigator.audioSession.type='playback'; }catch(e){}
+  try{
+    if(!keepAlive){
+      const url=silentWav(); if(!url) return;
+      keepAlive=new Audio(url); keepAlive.loop=true; keepAlive.preload='auto';
+      keepAlive.setAttribute('playsinline',''); keepAlive.setAttribute('x-webkit-airplay','deny');
+      if('mediaSession' in navigator && window.MediaMetadata){ try{ navigator.mediaSession.metadata=new MediaMetadata({title:'Praatbord'}); }catch(e){} }
+    }
+    if(keepAlive.paused){ const pr=keepAlive.play(); if(pr && pr.catch) pr.catch(()=>{}); }
+  }catch(e){}
+}
+function audioRelease(){
+  try{ if(keepAlive){ keepAlive.pause(); } }catch(e){}
+  try{ if(navigator.audioSession) navigator.audioSession.type='auto'; }catch(e){}
+}
+// Eerste aanraking telt als toestemming om geluid te maken; op de achtergrond niets laten lopen
+document.addEventListener('pointerdown', audioUnlock, {passive:true});
+document.addEventListener('visibilitychange', ()=>{ if(document.hidden){ try{ keepAlive && keepAlive.pause(); }catch(e){} } });
+
 let current = null, heardOnce = false, hintShown = false;
 function speak(text){
   if(!text) return;
+  audioUnlock();
   if(!synth){ if(!warned){ toast('Deze weergave kan niet praten. Tik op het deel-icoon en open de pagina in Safari.'); warned=true; } return; }
   try{
     // Op iOS gaat speak() direct na cancel() soms verloren, dus alleen afbreken als er echt iets loopt
@@ -710,7 +747,7 @@ function speak(text){
     synth.speak(u);
     if(!heardOnce && !hintShown){
       setTimeout(()=>{ if(!heardOnce && !hintShown){ hintShown=true;
-        toast('Geen geluid? Check of je iPhone niet op stil staat en er geen gesprek loopt. Helpt dat niet, open de pagina dan in Safari.'); } }, 1800);
+        toast(state.settings.ignoreMute ? 'Geen geluid? Check het volume en of er geen gesprek loopt. Helpt dat niet, zet de stille modus uit.' : 'Geen geluid? Check of je iPhone niet op stil staat en er geen gesprek loopt.'); } }, 1800);
     }
   }catch(e){ toast('Spreken lukte niet. Open de pagina in Safari.'); }
 }
@@ -1071,6 +1108,7 @@ function openSheet(){
   $('addCat').replaceChildren(...CATS.filter(c=>!c.phrases && !c.learned).map(c=>{ const o=document.createElement('option'); o.value=c.key; o.textContent=c.label; if(c.key===cat) o.selected=true; return o; }));
   $('phraseName').checked = state.settings.phraseSubj==='naam';
   $('liveVerbs').checked = !!state.settings.liveVerbs;
+  $('ignoreMute').checked = !!state.settings.ignoreMute;
   fillVoiceSelect(); renderMine(); renderPeople(); disarm();
   const sh=$('sheet');
   if(sh.hidden){ sh.hidden=false; panel.scrollTop=0; sheetH=panel.offsetHeight||600; sheetY.set(sheetH); }
@@ -1208,6 +1246,7 @@ function renderMine(){
 document.querySelectorAll('input[name=mode]').forEach(r=>r.addEventListener('change', e=>{ state.settings.mode=e.target.value; save(); }));
 $('eachWord').addEventListener('change', e=>{ state.settings.eachWord=e.target.checked; save(); });
 $('liveVerbs').addEventListener('change', e=>{ state.settings.liveVerbs=e.target.checked; save(); });
+$('ignoreMute').addEventListener('change', e=>{ state.settings.ignoreMute=e.target.checked; save(); if(e.target.checked) audioUnlock(); else audioRelease(); });
 $('phraseName').addEventListener('change', e=>{ state.settings.phraseSubj = e.target.checked ? 'naam' : 'ik'; save(); if(!state.name && e.target.checked) toast('Vul eerst de naam in, anders blijft het “ik”.'); });
 $('voice').addEventListener('change', e=>{ state.settings.voice=e.target.value; save(); });
 $('rate').addEventListener('input', e=>{ state.settings.rate=parseFloat(e.target.value); save(); });
@@ -1225,7 +1264,7 @@ if(synth){ try{ loadVoices(); synth.onvoiceschanged = loadVoices; }catch(e){} }
 
 /* ---------- Start: voorbeeldzin zodat de nette-zin-functie meteen zichtbaar is ---------- */
 renderAll();
-const APP_VERSIE = '16';
+const APP_VERSIE = '17';
 if('serviceWorker' in navigator){
   const hadController = !!navigator.serviceWorker.controller;
   window.addEventListener('load', ()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
