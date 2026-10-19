@@ -333,7 +333,7 @@ button:focus-visible, input:focus-visible, select:focus-visible{outline:3px soli
     <div class="grab">
       <div class="handle" aria-hidden="true"></div>
       <header>
-        <div class="ttl"><h2 id="sheetTitle">Instellingen voor ouders</h2><span class="ver" id="ver">Versie 18 · 19 okt 2026</span></div>
+        <div class="ttl"><h2 id="sheetTitle">Instellingen voor ouders</h2><span class="ver" id="ver">Versie 19 · 19 okt 2026</span></div>
         <button class="btn press" id="close">Klaar</button>
       </header>
     </div>
@@ -1225,7 +1225,7 @@ if(synth){ try{ loadVoices(); synth.onvoiceschanged = loadVoices; }catch(e){} }
 
 /* ---------- Start: voorbeeldzin zodat de nette-zin-functie meteen zichtbaar is ---------- */
 renderAll();
-const APP_VERSIE = '18';
+const APP_VERSIE = '19';
 if('serviceWorker' in navigator){
   const hadController = !!navigator.serviceWorker.controller;
   window.addEventListener('load', ()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
